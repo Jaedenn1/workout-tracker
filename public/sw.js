@@ -1,4 +1,4 @@
-const CACHE = "workout-tracker-v0.5";
+const CACHE = "workout-tracker-v0.6";
 const APP_SHELL = ["/", "/offline", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
