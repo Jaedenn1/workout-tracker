@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleDisplayName</key>
-  <string>Workout</string>
+  <string>Workout Watch</string>
   <key>CFBundleExecutable</key>
   <string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key>
@@ -18,17 +18,9 @@
   <string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key>
   <string>$(CURRENT_PROJECT_VERSION)</string>
-  <key>NSHealthShareUsageDescription</key>
-  <string>Workout Tracker reads your strength workouts and bodyweight so you can review and import selected Apple Health data.</string>
-  <key>NSHealthUpdateUsageDescription</key>
-  <string>Workout Tracker writes only the strength workouts and bodyweight entries you explicitly choose to save.</string>
-  <key>NSSupportsLiveActivities</key>
+  <key>WKApplication</key>
   <true/>
-  <key>UILaunchScreen</key>
-  <dict/>
-  <key>UISupportedInterfaceOrientations</key>
-  <array>
-    <string>UIInterfaceOrientationPortrait</string>
-  </array>
+  <key>WKCompanionAppBundleIdentifier</key>
+  <string>com.jaedenn.workouttracker</string>
 </dict>
 </plist>

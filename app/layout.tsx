@@ -6,6 +6,7 @@ import "./v05.css";
 import "./v06.css";
 import "./v07.css";
 import "./v08.css";
+import "./v09.css";
 
 export const metadata: Metadata = {
   title: "Workout Tracker",

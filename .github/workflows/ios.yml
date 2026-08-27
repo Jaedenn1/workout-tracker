@@ -1,4 +1,4 @@
-name: iOS HealthKit build
+name: iOS + watchOS build
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
       - name: Generate project
         working-directory: ios/WorkoutTrackerNative
         run: xcodegen generate
-      - name: Build iPhone companion
+      - name: Build iPhone app + Live Activity
         working-directory: ios/WorkoutTrackerNative
         run: |
           xcodebuild \
@@ -30,5 +30,16 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Build Apple Watch app
+        working-directory: ios/WorkoutTrackerNative
+        run: |
+          xcodebuild \
+            -project WorkoutTrackerNative.xcodeproj \
+            -scheme WorkoutTrackerWatchApp \
+            -configuration Debug \
+            -sdk watchsimulator \
+            -destination 'generic/platform=watchOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
