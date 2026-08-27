@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ProgressDashboard from "./ProgressDashboard";
 
 const SYNC_KEY_STORAGE = "workout-tracker:v0.5:sync-key";
 const AUTO_SYNC_STORAGE = "workout-tracker:v0.5:auto-sync";
@@ -8,6 +9,7 @@ const HISTORY_KEY = "workout-tracker:v0.2:history";
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
 const DRAFTS_KEY = "workout-tracker:v0.4:drafts";
+const BODYWEIGHT_KEY = "workout-tracker:v0.6:bodyweight";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -30,6 +32,7 @@ type SyncPayload = {
     routines: unknown;
     activeRoutineId: string | null;
     drafts: unknown;
+    bodyweight?: unknown;
   };
 };
 
@@ -51,6 +54,7 @@ function collectPayload(): SyncPayload {
       routines: safeParse(localStorage.getItem(ROUTINES_KEY)) ?? [],
       activeRoutineId: localStorage.getItem(ACTIVE_ROUTINE_KEY),
       drafts: safeParse(localStorage.getItem(DRAFTS_KEY)) ?? {},
+      bodyweight: safeParse(localStorage.getItem(BODYWEIGHT_KEY)) ?? [],
     },
   };
 }
@@ -62,6 +66,9 @@ function applyPayload(payload: SyncPayload) {
     localStorage.setItem(ACTIVE_ROUTINE_KEY, payload.state.activeRoutineId);
   }
   localStorage.setItem(DRAFTS_KEY, JSON.stringify(payload.state.drafts ?? {}));
+  if (payload.state.bodyweight != null) {
+    localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(payload.state.bodyweight));
+  }
 }
 
 function makeSyncKey() {
@@ -93,6 +100,7 @@ async function syncFetch(method: "GET" | "PUT", key: string, payload?: SyncPaylo
 
 export default function AppTools() {
   const [open, setOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [syncKey, setSyncKey] = useState("");
   const [status, setStatus] = useState("Local-first · device storage active");
   const [busy, setBusy] = useState(false);
@@ -261,16 +269,19 @@ export default function AppTools() {
   return (
     <>
       <div className="v05-tools" aria-label="App tools">
+        <button type="button" className="v06-progress-button" onClick={() => setProgressOpen(true)}>📊 Progress</button>
         <button type="button" onClick={() => setOpen(true)}>☁ Sync</button>
         {!standalone && <button type="button" onClick={installApp}>＋ Install</button>}
       </div>
+
+      {progressOpen && <ProgressDashboard onClose={() => setProgressOpen(false)} />}
 
       {open && (
         <div className="v05-backdrop" onClick={() => setOpen(false)}>
           <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
               <div>
-                <p>V0.5 · PWA + CLOUD</p>
+                <p>V0.6 · PWA + CLOUD</p>
                 <h2>Device & sync</h2>
               </div>
               <button type="button" onClick={() => setOpen(false)}>×</button>
@@ -280,7 +291,7 @@ export default function AppTools() {
 
             <div className="v05-block">
               <h3>Cloud sync key</h3>
-              <p>Use the same key on another device to restore the same routines, drafts, and workout history.</p>
+              <p>Use the same key on another device to restore the same routines, drafts, workout history, and bodyweight log.</p>
               <div className="v05-key-row">
                 <input
                   value={syncKey}
