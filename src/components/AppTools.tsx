@@ -15,6 +15,7 @@ const V07_NOTES_KEY = "workout-tracker:v0.7:exercise-notes";
 const V07_REST_KEY = "workout-tracker:v0.7:rest-seconds";
 const V07_EXTRAS_KEY = "workout-tracker:v0.7:routine-extras";
 const V07_DRAFTS_KEY = "workout-tracker:v0.7:drafts";
+const V08_HEALTH_IMPORTS_KEY = "workout-tracker:v0.8:healthkit-imports";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -30,7 +31,7 @@ type CloudResponse = {
 };
 
 type SyncPayload = {
-  version: 2;
+  version: 2 | 3;
   updatedAt: string;
   state: {
     history: unknown;
@@ -43,6 +44,7 @@ type SyncPayload = {
     v07RestSeconds?: unknown;
     v07RoutineExtras?: unknown;
     v07Drafts?: unknown;
+    v08HealthImports?: unknown;
   };
 };
 
@@ -57,7 +59,7 @@ function safeParse(raw: string | null) {
 
 function collectPayload(): SyncPayload {
   return {
-    version: 2,
+    version: 3,
     updatedAt: new Date().toISOString(),
     state: {
       history: safeParse(localStorage.getItem(HISTORY_KEY)) ?? [],
@@ -70,6 +72,7 @@ function collectPayload(): SyncPayload {
       v07RestSeconds: safeParse(localStorage.getItem(V07_REST_KEY)) ?? {},
       v07RoutineExtras: safeParse(localStorage.getItem(V07_EXTRAS_KEY)) ?? {},
       v07Drafts: safeParse(localStorage.getItem(V07_DRAFTS_KEY)) ?? {},
+      v08HealthImports: safeParse(localStorage.getItem(V08_HEALTH_IMPORTS_KEY)) ?? [],
     },
   };
 }
@@ -85,6 +88,7 @@ function applyPayload(payload: SyncPayload) {
   if (payload.state.v07RestSeconds != null) localStorage.setItem(V07_REST_KEY, JSON.stringify(payload.state.v07RestSeconds));
   if (payload.state.v07RoutineExtras != null) localStorage.setItem(V07_EXTRAS_KEY, JSON.stringify(payload.state.v07RoutineExtras));
   if (payload.state.v07Drafts != null) localStorage.setItem(V07_DRAFTS_KEY, JSON.stringify(payload.state.v07Drafts));
+  if (payload.state.v08HealthImports != null) localStorage.setItem(V08_HEALTH_IMPORTS_KEY, JSON.stringify(payload.state.v08HealthImports));
 }
 
 function makeSyncKey() {
@@ -259,6 +263,7 @@ export default function AppTools() {
     <>
       <div className="v05-tools" aria-label="App tools">
         <a className="v07-gym-button" href="/gym">⚡ Gym</a>
+        <a className="v08-health-button" href="/health">🍎 Health</a>
         <button type="button" className="v06-progress-button" onClick={() => setProgressOpen(true)}>📊 Progress</button>
         <button type="button" onClick={() => setOpen(true)}>☁ Sync</button>
         {!standalone && <button type="button" onClick={installApp}>＋ Install</button>}
@@ -270,13 +275,13 @@ export default function AppTools() {
         <div className="v05-backdrop" onClick={() => setOpen(false)}>
           <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
-              <div><p>V0.7 · PWA + CLOUD</p><h2>Device & sync</h2></div>
+              <div><p>V0.8 · PWA + CLOUD</p><h2>Device & sync</h2></div>
               <button type="button" onClick={() => setOpen(false)}>×</button>
             </div>
             <div className="v05-status">{status}</div>
             <div className="v05-block">
               <h3>Cloud sync key</h3>
-              <p>One key now covers routines, drafts, workout history, bodyweight, v0.7 custom exercises, notes, rest timers and Gym Mode drafts.</p>
+              <p>One key covers routines, drafts, workout history, bodyweight, v0.7 Gym Mode data, and locally imported Apple Health snapshots.</p>
               <div className="v05-key-row">
                 <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false; }} placeholder="Generate or paste sync key" spellCheck={false} />
                 <button type="button" onClick={copyKey}>Copy</button>
@@ -290,11 +295,11 @@ export default function AppTools() {
             </div>
             <div className="v05-block">
               <h3>{standalone ? "Installed" : "Install on this device"}</h3>
-              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.7 launches straight into Gym Mode."}</p>
+              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.8 still launches straight into Gym Mode."}</p>
               {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
               {installHelp && <small>{installHelp}</small>}
             </div>
-            <p className="v05-footnote">Workout logging remains local-first. Cloud failures never block a session.</p>
+            <p className="v05-footnote">Workout logging remains local-first. HealthKit and cloud failures never block a session.</p>
           </section>
         </div>
       )}

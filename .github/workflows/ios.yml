@@ -1,0 +1,34 @@
+name: iOS HealthKit build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        working-directory: ios/WorkoutTrackerNative
+        run: xcodegen generate
+      - name: Build iPhone companion
+        working-directory: ios/WorkoutTrackerNative
+        run: |
+          xcodebuild \
+            -project WorkoutTrackerNative.xcodeproj \
+            -scheme WorkoutTrackerNative \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
