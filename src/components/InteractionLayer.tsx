@@ -9,6 +9,8 @@ const TILT_SELECTOR = [
   ".gym-card",
   ".v06-card",
   ".v10-card",
+  ".health-card",
+  ".watch-card",
 ].join(",");
 
 const REVEAL_SELECTOR = [
@@ -20,9 +22,18 @@ const REVEAL_SELECTOR = [
   ".gym-finish",
   ".v06-kpis",
   ".v06-card",
+  ".v10-hero",
+  ".v10-status",
   ".v10-card",
   ".v10-kpis",
   ".v10-summary-row",
+  ".health-hero",
+  ".health-status",
+  ".health-card",
+  ".health-panel",
+  ".watch-hero",
+  ".watch-status",
+  ".watch-card",
 ].join(",");
 
 function isInternalNavigation(anchor: HTMLAnchorElement) {
@@ -164,7 +175,7 @@ export default function InteractionLayer() {
     const handlePress = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const control = target.closest("button, a.v11-primary-action, .v11-bottom-nav a, .v11-quick-actions a");
+      const control = target.closest("button, a.v11-primary-action, .v11-bottom-nav a, .v11-quick-actions a, .health-primary, .health-secondary, .watch-button, .v10-back, .health-back, .watch-back, .v10-file-button");
       if (!(control instanceof HTMLElement)) return;
       control.classList.add("pc-pressed");
       if ("vibrate" in navigator) navigator.vibrate?.(7);
