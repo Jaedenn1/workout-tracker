@@ -165,6 +165,11 @@ async function replaceBodyweight(value: string) {
   if (rows.length) await db.bodyweight.bulkPut(rows);
 }
 
+async function replaceQueuedChange(key: AppDataKey, operation: "put" | "delete", createdAt: string) {
+  await db.syncQueue.where("key").equals(key).delete();
+  await db.syncQueue.add({ createdAt, key, operation });
+}
+
 export async function persistLegacyKey(key: AppDataKey, value: string, queue = true) {
   const updatedAt = new Date().toISOString();
   await db.transaction("rw", db.kv, db.workouts, db.routines, db.bodyweight, db.syncQueue, async () => {
@@ -172,7 +177,7 @@ export async function persistLegacyKey(key: AppDataKey, value: string, queue = t
     if (key === HISTORY_KEY) await replaceWorkouts(value);
     if (key === ROUTINES_KEY) await replaceRoutines(value);
     if (key === BODYWEIGHT_KEY) await replaceBodyweight(value);
-    if (queue) await db.syncQueue.add({ createdAt: updatedAt, key, operation: "put" });
+    if (queue) await replaceQueuedChange(key, "put", updatedAt);
   });
 }
 
@@ -183,7 +188,7 @@ export async function deleteLegacyKey(key: AppDataKey, queue = true) {
     if (key === HISTORY_KEY) await db.workouts.clear();
     if (key === ROUTINES_KEY) await db.routines.clear();
     if (key === BODYWEIGHT_KEY) await db.bodyweight.clear();
-    if (queue) await db.syncQueue.add({ createdAt, key, operation: "delete" });
+    if (queue) await replaceQueuedChange(key, "delete", createdAt);
   });
 }
 
