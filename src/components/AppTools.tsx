@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ProgressDashboard from "./ProgressDashboard";
+import { db } from "../lib/database";
 
 const SYNC_KEY_STORAGE = "workout-tracker:v0.5:sync-key";
 const AUTO_SYNC_STORAGE = "workout-tracker:v0.5:auto-sync";
@@ -121,7 +122,7 @@ export default function AppTools() {
   const [open, setOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [syncKey, setSyncKey] = useState("");
-  const [status, setStatus] = useState("Local-first · device storage active");
+  const [status, setStatus] = useState("IndexedDB-backed · local-first");
   const [busy, setBusy] = useState(false);
   const [standalone, setStandalone] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -157,13 +158,14 @@ export default function AppTools() {
         const { response, data } = await syncFetch("PUT", syncKey, payload);
         if (response.ok) {
           lastSnapshotRef.current = snapshot;
-          setStatus("Cloud sync ready · changes backed up");
+          await db.syncQueue.clear();
+          setStatus("Cloud sync ready · queued changes backed up");
         } else if (response.status === 503 || data.configured === false) {
           autoSyncRef.current = false;
-          setStatus("Cloud database not connected yet · local data is safe");
+          setStatus("Cloud database not connected yet · IndexedDB data is safe");
         }
       } catch {
-        setStatus("Offline · local data is safe");
+        setStatus("Offline · IndexedDB data is safe");
       }
     }, 20000);
     return () => window.clearInterval(interval);
@@ -182,10 +184,10 @@ export default function AppTools() {
     try {
       const { response, data } = await syncFetch("GET", key);
       if (response.ok) setStatus(data.found ? "Cloud connected · backup found" : "Cloud connected · no backup yet");
-      else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · local data is safe");
+      else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · IndexedDB data is safe");
       else setStatus(data.message ?? "Cloud check failed");
     } catch {
-      setStatus("Offline · local data is safe");
+      setStatus("Offline · IndexedDB data is safe");
     } finally {
       setBusy(false);
     }
@@ -201,11 +203,12 @@ export default function AppTools() {
         autoSyncRef.current = true;
         localStorage.setItem(AUTO_SYNC_STORAGE, "1");
         lastSnapshotRef.current = JSON.stringify(payload.state);
+        await db.syncQueue.clear();
         setStatus("Backed up · automatic sync enabled");
-      } else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · local data is safe");
+      } else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · IndexedDB data is safe");
       else setStatus(data.message ?? "Backup failed");
     } catch {
-      setStatus("Offline · local data is safe");
+      setStatus("Offline · IndexedDB data is safe");
     } finally {
       setBusy(false);
     }
@@ -217,7 +220,7 @@ export default function AppTools() {
     try {
       const { response, data } = await syncFetch("GET", key);
       if (!response.ok) {
-        setStatus(response.status === 503 || data.configured === false ? "Cloud database not connected yet · local data is safe" : data.message ?? "Restore failed");
+        setStatus(response.status === 503 || data.configured === false ? "Cloud database not connected yet · IndexedDB data is safe" : data.message ?? "Restore failed");
         return;
       }
       if (!data.found || !data.payload) {
@@ -226,12 +229,13 @@ export default function AppTools() {
       }
       if (!window.confirm("Replace this device's local workout data with the cloud backup?")) return;
       applyPayload(data.payload);
+      await db.syncQueue.clear();
       autoSyncRef.current = true;
       localStorage.setItem(AUTO_SYNC_STORAGE, "1");
       setStatus("Cloud backup restored");
       window.location.reload();
     } catch {
-      setStatus("Offline · local data is safe");
+      setStatus("Offline · IndexedDB data is safe");
     } finally {
       setBusy(false);
     }
@@ -263,6 +267,8 @@ export default function AppTools() {
     <>
       <div className="v05-tools" aria-label="App tools">
         <a className="v07-gym-button" href="/gym">⚡ Gym</a>
+        <a className="v08-health-button" href="/history">🕘 History</a>
+        <a className="v08-health-button" href="/data">🛡 Data</a>
         <a className="v08-health-button" href="/health">🍎 Health</a>
         <a className="v08-health-button" href="/watch">⌚ Watch</a>
         <button type="button" className="v06-progress-button" onClick={() => setProgressOpen(true)}>📊 Progress</button>
@@ -276,13 +282,13 @@ export default function AppTools() {
         <div className="v05-backdrop" onClick={() => setOpen(false)}>
           <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
-              <div><p>V0.9 · PWA + NATIVE</p><h2>Device & sync</h2></div>
+              <div><p>V1.0 · DAILY DRIVER</p><h2>Device & sync</h2></div>
               <button type="button" onClick={() => setOpen(false)}>×</button>
             </div>
             <div className="v05-status">{status}</div>
             <div className="v05-block">
               <h3>Cloud sync key</h3>
-              <p>One key covers routines, drafts, workout history, bodyweight, v0.7 Gym Mode data, and locally imported Apple Health snapshots.</p>
+              <p>One key covers routines, drafts, workout history, bodyweight, Gym Mode data, and locally imported Apple Health snapshots. IndexedDB remains the device-side durable source.</p>
               <div className="v05-key-row">
                 <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false; }} placeholder="Generate or paste sync key" spellCheck={false} />
                 <button type="button" onClick={copyKey}>Copy</button>
@@ -292,15 +298,15 @@ export default function AppTools() {
                 <button type="button" disabled={busy} onClick={restoreCloud}>Restore cloud</button>
                 <button type="button" disabled={busy} onClick={checkCloud}>Check</button>
               </div>
-              <small>After the first successful backup, this device automatically pushes changes about every 20 seconds.</small>
+              <small>After the first successful backup, this device pushes changes about every 20 seconds and clears the local sync queue only after the server accepts the snapshot.</small>
             </div>
             <div className="v05-block">
               <h3>{standalone ? "Installed" : "Install on this device"}</h3>
-              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.9 still launches straight into Gym Mode."}</p>
+              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v1.0 still launches straight into Gym Mode."}</p>
               {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
               {installHelp && <small>{installHelp}</small>}
             </div>
-            <p className="v05-footnote">Workout logging remains local-first. HealthKit, Watch sync, and cloud failures never block a session.</p>
+            <p className="v05-footnote">Workout logging remains local-first. HealthKit, Watch sync, cloud sync, and internet failures never block a session.</p>
           </section>
         </div>
       )}
