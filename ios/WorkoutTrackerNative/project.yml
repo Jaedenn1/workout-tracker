@@ -22,7 +22,6 @@ targets:
       path: WorkoutTrackerNative/WorkoutTrackerNative.entitlements
     dependencies:
       - target: WorkoutLiveActivity
-      - target: WorkoutTrackerWatchApp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jaedenn.workouttracker
