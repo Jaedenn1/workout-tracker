@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Workout Tracker",
     short_name: "Workout",
     description: "Fast personal lifting tracker",
-    start_url: "/gym",
+    start_url: "/",
     display: "standalone",
     background_color: "#080808",
     theme_color: "#080808",
