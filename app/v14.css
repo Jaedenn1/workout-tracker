@@ -1,0 +1,447 @@
+/* Phase D — consistency, accessibility, and secondary-screen polish */
+
+:root {
+  --pd-safe-bottom: max(18px, env(safe-area-inset-bottom));
+  --pd-safe-top: max(14px, env(safe-area-inset-top));
+}
+
+/* Keep every screen clear of the persistent bottom dock. */
+.v11-home,
+.gym-shell,
+.v10-shell,
+.health-shell,
+.watch-shell {
+  padding-bottom: calc(118px + env(safe-area-inset-bottom));
+}
+
+/* Secondary pages now use the same visual chassis as Home/Gym. */
+.v10-shell,
+.health-shell,
+.watch-shell {
+  width: min(1120px, calc(100% - 28px));
+  margin: 0 auto;
+  padding-top: calc(24px + env(safe-area-inset-top));
+}
+
+.v10-hero,
+.health-hero,
+.watch-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 22px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(213,255,83,.14);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 82% 12%, rgba(213,255,83,.09), transparent 17rem),
+    linear-gradient(145deg, rgba(255,255,255,.055), transparent 38%),
+    linear-gradient(145deg, #18191c, #101115 54%, #090a0c);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.075),
+    inset 0 -1px 0 rgba(0,0,0,.5),
+    0 22px 48px rgba(0,0,0,.36),
+    0 6px 15px rgba(0,0,0,.28);
+}
+
+.v10-hero::after,
+.health-hero::after,
+.watch-hero::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(213,255,83,.8), transparent);
+  box-shadow: 0 0 18px rgba(213,255,83,.18);
+}
+
+.v10-hero h1,
+.health-hero h1,
+.watch-hero h1 {
+  margin: 3px 0 8px;
+  color: #fbfcf7;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: .98;
+  letter-spacing: -.045em;
+  text-shadow: 0 2px 0 #000, 0 10px 28px rgba(0,0,0,.35);
+}
+
+.v10-hero > div > p:last-child,
+.health-hero > div > p:last-child,
+.watch-hero > div > p:last-child {
+  max-width: 720px;
+  color: #a6a8a0;
+  line-height: 1.55;
+}
+
+.v10-eyebrow,
+.health-eyebrow,
+.watch-eyebrow,
+.health-kicker {
+  color: #b8cf69;
+  letter-spacing: .13em;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.v10-back,
+.health-back,
+.watch-back {
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1c1d21, #101116);
+  color: #eef0e8;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 4px 0 #050506, 0 10px 18px rgba(0,0,0,.25);
+}
+
+/* Status bars are unified across Data / Health / Watch / Sync. */
+.v10-status,
+.health-status,
+.watch-status,
+.v05-status {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(213,255,83,.12);
+  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(213,255,83,.065), rgba(213,255,83,.025));
+  color: #dfe7c5;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), inset 0 2px 8px rgba(0,0,0,.26);
+}
+
+/* Shared 3D surfaces */
+.health-card,
+.health-panel,
+.watch-card,
+.v10-card,
+.v10-kpis > div,
+.health-summary-row > div,
+.health-counts > div,
+.watch-stats > div {
+  border: 1px solid rgba(255,255,255,.075);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.05), transparent 38%),
+    linear-gradient(145deg, #191a1e, #111216 52%, #0a0b0d);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.065),
+    inset 0 -1px 0 rgba(0,0,0,.48),
+    0 16px 34px rgba(0,0,0,.32),
+    0 4px 11px rgba(0,0,0,.26);
+}
+
+.health-card,
+.health-panel,
+.watch-card,
+.v10-card {
+  border-radius: 20px;
+}
+
+.health-card,
+.watch-card,
+.v10-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.health-card::before,
+.watch-card::before,
+.v10-card::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px auto;
+  height: 32%;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), transparent);
+}
+
+.health-grid,
+.watch-grid,
+.v10-grid {
+  gap: 14px;
+}
+
+.health-panel,
+.watch-card,
+.v10-card {
+  padding: 18px;
+}
+
+.health-card h2,
+.watch-card h2,
+.v10-card h2 {
+  color: #f4f6ef;
+  letter-spacing: -.02em;
+}
+
+.health-card p,
+.health-panel p,
+.watch-card p,
+.v10-card p,
+.v10-muted,
+.health-muted,
+.watch-note {
+  color: #9d9fa5;
+  line-height: 1.55;
+}
+
+/* Primary and secondary actions all share the same hardware language. */
+.health-primary,
+.watch-button:not(.secondary),
+.v10-actions button:first-child,
+.v10-card > button,
+.v10-file-button,
+.v05-actions button:first-child {
+  min-height: 46px;
+  border: 1px solid #e6ff92;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #e7ff8b, #d5ff53 58%, #b8db3e);
+  color: #0b0c08;
+  font-weight: 850;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 5px 0 #7f9922, 0 12px 25px rgba(0,0,0,.26);
+}
+
+.health-secondary,
+.watch-button.secondary,
+.v10-actions button:not(:first-child),
+.v10-snapshot-row button,
+.v10-section-heading a,
+.v05-actions button:not(:first-child),
+.v05-key-row button {
+  min-height: 44px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #1e1f23, #111216);
+  color: #eff1ea;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 4px 0 #050506, 0 9px 16px rgba(0,0,0,.24);
+}
+
+.health-primary:active,
+.watch-button:active,
+.v10-actions button:active,
+.v10-card > button:active,
+.v10-file-button:active,
+.health-secondary:active,
+.v10-snapshot-row button:active,
+.v05-actions button:active,
+.v05-key-row button:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 #050506;
+}
+
+/* Data Center metrics */
+.v10-kpis {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.v10-kpis > div,
+.health-summary-row > div,
+.health-counts > div,
+.watch-stats > div {
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.v10-kpis strong,
+.health-summary-row strong,
+.health-counts strong,
+.watch-stats strong {
+  color: #e3ff82;
+  font-variant-numeric: tabular-nums;
+}
+
+.v10-snapshot-row,
+.watch-row,
+.health-steps > div,
+.v10-model > div {
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #0d0e10, #090a0c);
+  box-shadow: inset 0 2px 7px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+/* More sheet + sync panel now match the rest of the app. */
+.v11-more-sheet,
+.v05-panel {
+  border-color: rgba(255,255,255,.09);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(213,255,83,.06), transparent 18rem),
+    linear-gradient(145deg, #191a1e, #0f1013 56%, #090a0c);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 34px 90px rgba(0,0,0,.62);
+}
+
+.v11-more-grid > a,
+.v11-more-grid > button,
+.v05-block {
+  border-color: rgba(255,255,255,.075);
+  background: linear-gradient(145deg, #18191d, #0e0f12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 8px 20px rgba(0,0,0,.24);
+}
+
+.v11-more-grid > a:hover,
+.v11-more-grid > button:hover {
+  border-color: rgba(213,255,83,.22);
+}
+
+.v05-key-row input {
+  min-height: 46px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #08090b, #0c0d10);
+  color: #f4f5f1;
+  box-shadow: inset 0 3px 8px rgba(0,0,0,.55);
+}
+
+/* Keyboard and accessibility pass */
+:where(a, button, input, select, textarea, label[role="button"], .v10-file-button, .health-secondary, .watch-button):focus-visible {
+  outline: 3px solid rgba(213,255,83,.9);
+  outline-offset: 3px;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  opacity: .52;
+  filter: saturate(.6);
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Ensure tap targets are usable on iPhone. */
+.v11-bottom-nav a,
+.v11-bottom-nav button,
+.v11-more-grid > a,
+.v11-more-grid > button,
+.gym-tools-row button,
+.gym-exercise-controls button,
+.gym-quick button,
+.gym-check,
+.health-primary,
+.health-secondary,
+.watch-button,
+.v10-actions button,
+.v10-snapshot-row button,
+.v10-file-button {
+  min-height: 44px;
+}
+
+/* Safe-area aware dock with a tighter, app-like footprint. */
+.v11-bottom-nav {
+  bottom: max(8px, env(safe-area-inset-bottom));
+  padding-bottom: max(5px, calc(env(safe-area-inset-bottom) * .15));
+  width: min(600px, calc(100% - 18px));
+}
+
+/* Consistent typography and number rendering. */
+.gym-set input,
+.v06-kpis strong,
+.v10-kpis strong,
+.health-counts strong,
+.watch-stats strong,
+.v11-stat-row strong {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .v10-shell,
+  .health-shell,
+  .watch-shell {
+    width: min(100% - 18px, 1120px);
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+
+  .v10-hero,
+  .health-hero,
+  .watch-hero {
+    display: block;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .v10-back,
+  .health-back,
+  .watch-back {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .health-grid,
+  .watch-grid,
+  .v10-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .v10-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .health-summary-row,
+  .health-counts,
+  .watch-stats {
+    gap: 8px;
+  }
+
+  .v11-more-sheet {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .v05-panel {
+    max-height: calc(100dvh - env(safe-area-inset-top) - 18px);
+    overflow: auto;
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-width: 430px) {
+  .v10-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .v10-kpis > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .health-summary-row,
+  .health-counts,
+  .watch-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .watch-stats > div:last-child,
+  .health-summary-row > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .v10-card,
+  .health-card,
+  .health-panel,
+  .watch-card,
+  .v11-more-sheet,
+  .v05-panel,
+  .gym-card,
+  .v11-home-card {
+    border-color: rgba(255,255,255,.22);
+  }
+
+  .v10-eyebrow,
+  .health-eyebrow,
+  .watch-eyebrow,
+  .health-kicker {
+    color: #dcff74;
+  }
+}
