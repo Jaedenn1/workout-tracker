@@ -1,0 +1,16 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#0a0a0a; color:#f5f5f5; }
+* { box-sizing:border-box; }
+body { margin:0; background:#0a0a0a; }
+button { border:0; border-radius:999px; padding:.7rem 1rem; font-weight:700; cursor:pointer; }
+.shell { max-width:680px; margin:0 auto; min-height:100vh; padding:32px 18px 80px; }
+.eyebrow { font-size:.75rem; letter-spacing:.16em; color:#8c8c8c; margin-bottom:6px; }
+h1 { font-size:2.4rem; margin:0; }
+.muted { color:#9a9a9a; }
+.stack { display:grid; gap:14px; margin-top:26px; }
+.card { border:1px solid #232323; border-radius:20px; padding:18px; background:#111; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.row h2 { margin:0; font-size:1.1rem; }
+.metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+.metrics div { background:#171717; border-radius:14px; padding:12px; }
+.metrics span { display:block; color:#777; font-size:.75rem; margin-bottom:5px; }
+.metrics strong { font-size:.96rem; }
