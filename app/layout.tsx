@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import AppTools from "../src/components/AppTools";
 import "./styles.css";
 import "./v05.css";
+import "./v06.css";
 
 export const metadata: Metadata = {
   title: "Workout Tracker",
