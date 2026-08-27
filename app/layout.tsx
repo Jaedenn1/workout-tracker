@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import AppTools from "../src/components/AppTools";
+import InteractionLayer from "../src/components/InteractionLayer";
 import StorageGate from "../src/components/StorageGate";
 import "./styles.css";
 import "./v05.css";
@@ -11,6 +12,7 @@ import "./v09.css";
 import "./v10.css";
 import "./v11.css";
 import "./v12.css";
+import "./v13.css";
 
 export const metadata: Metadata = {
   title: "Workout Tracker",
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <StorageGate>
           {children}
           <AppTools />
+          <InteractionLayer />
         </StorageGate>
       </body>
     </html>
