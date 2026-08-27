@@ -26,8 +26,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jaedenn.workouttracker
         PRODUCT_NAME: Workout
-        MARKETING_VERSION: "0.9.0"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "10"
         TARGETED_DEVICE_FAMILY: "1"
 
   WorkoutLiveActivity:
@@ -42,8 +42,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jaedenn.workouttracker.liveactivity
         PRODUCT_NAME: WorkoutLiveActivity
-        MARKETING_VERSION: "0.9.0"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "10"
         APPLICATION_EXTENSION_API_ONLY: YES
 
   WorkoutTrackerWatchApp:
@@ -58,8 +58,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jaedenn.workouttracker.watchapp
         PRODUCT_NAME: Workout Watch
-        MARKETING_VERSION: "0.9.0"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "10"
 
 schemes:
   WorkoutTrackerNative:
