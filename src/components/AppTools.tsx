@@ -264,6 +264,7 @@ export default function AppTools() {
       <div className="v05-tools" aria-label="App tools">
         <a className="v07-gym-button" href="/gym">⚡ Gym</a>
         <a className="v08-health-button" href="/health">🍎 Health</a>
+        <a className="v08-health-button" href="/watch">⌚ Watch</a>
         <button type="button" className="v06-progress-button" onClick={() => setProgressOpen(true)}>📊 Progress</button>
         <button type="button" onClick={() => setOpen(true)}>☁ Sync</button>
         {!standalone && <button type="button" onClick={installApp}>＋ Install</button>}
@@ -275,7 +276,7 @@ export default function AppTools() {
         <div className="v05-backdrop" onClick={() => setOpen(false)}>
           <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
-              <div><p>V0.8 · PWA + CLOUD</p><h2>Device & sync</h2></div>
+              <div><p>V0.9 · PWA + NATIVE</p><h2>Device & sync</h2></div>
               <button type="button" onClick={() => setOpen(false)}>×</button>
             </div>
             <div className="v05-status">{status}</div>
@@ -295,11 +296,11 @@ export default function AppTools() {
             </div>
             <div className="v05-block">
               <h3>{standalone ? "Installed" : "Install on this device"}</h3>
-              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.8 still launches straight into Gym Mode."}</p>
+              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.9 still launches straight into Gym Mode."}</p>
               {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
               {installHelp && <small>{installHelp}</small>}
             </div>
-            <p className="v05-footnote">Workout logging remains local-first. HealthKit and cloud failures never block a session.</p>
+            <p className="v05-footnote">Workout logging remains local-first. HealthKit, Watch sync, and cloud failures never block a session.</p>
           </section>
         </div>
       )}
