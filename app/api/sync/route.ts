@@ -4,6 +4,11 @@ import { getSql } from "../../../src/lib/neon";
 
 export const runtime = "nodejs";
 
+type SyncRow = {
+  payload: unknown;
+  updated_at: string | Date;
+};
+
 function getSyncKey(request: Request) {
   const header = request.headers.get("authorization") ?? "";
   if (!header.startsWith("Bearer ")) return null;
@@ -40,15 +45,15 @@ export async function GET(request: Request) {
   }
 
   await ensureSchema(sql);
-  const keyHash = hashSyncKey(key);
-  const rows = await sql`
+  const result = await sql`
     SELECT payload, updated_at
     FROM workout_sync
-    WHERE sync_key_hash = ${keyHash}
+    WHERE sync_key_hash = ${hashSyncKey(key)}
     LIMIT 1
   `;
+  const rows = result as unknown as SyncRow[];
 
-  if (!rows.length) {
+  if (rows.length === 0) {
     return NextResponse.json({ configured: true, found: false });
   }
 
