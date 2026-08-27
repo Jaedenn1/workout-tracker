@@ -10,6 +10,11 @@ const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
 const DRAFTS_KEY = "workout-tracker:v0.4:drafts";
 const BODYWEIGHT_KEY = "workout-tracker:v0.6:bodyweight";
+const V07_CUSTOM_KEY = "workout-tracker:v0.7:custom-exercises";
+const V07_NOTES_KEY = "workout-tracker:v0.7:exercise-notes";
+const V07_REST_KEY = "workout-tracker:v0.7:rest-seconds";
+const V07_EXTRAS_KEY = "workout-tracker:v0.7:routine-extras";
+const V07_DRAFTS_KEY = "workout-tracker:v0.7:drafts";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -25,7 +30,7 @@ type CloudResponse = {
 };
 
 type SyncPayload = {
-  version: 1;
+  version: 2;
   updatedAt: string;
   state: {
     history: unknown;
@@ -33,6 +38,11 @@ type SyncPayload = {
     activeRoutineId: string | null;
     drafts: unknown;
     bodyweight?: unknown;
+    v07CustomExercises?: unknown;
+    v07Notes?: unknown;
+    v07RestSeconds?: unknown;
+    v07RoutineExtras?: unknown;
+    v07Drafts?: unknown;
   };
 };
 
@@ -47,7 +57,7 @@ function safeParse(raw: string | null) {
 
 function collectPayload(): SyncPayload {
   return {
-    version: 1,
+    version: 2,
     updatedAt: new Date().toISOString(),
     state: {
       history: safeParse(localStorage.getItem(HISTORY_KEY)) ?? [],
@@ -55,6 +65,11 @@ function collectPayload(): SyncPayload {
       activeRoutineId: localStorage.getItem(ACTIVE_ROUTINE_KEY),
       drafts: safeParse(localStorage.getItem(DRAFTS_KEY)) ?? {},
       bodyweight: safeParse(localStorage.getItem(BODYWEIGHT_KEY)) ?? [],
+      v07CustomExercises: safeParse(localStorage.getItem(V07_CUSTOM_KEY)) ?? [],
+      v07Notes: safeParse(localStorage.getItem(V07_NOTES_KEY)) ?? {},
+      v07RestSeconds: safeParse(localStorage.getItem(V07_REST_KEY)) ?? {},
+      v07RoutineExtras: safeParse(localStorage.getItem(V07_EXTRAS_KEY)) ?? {},
+      v07Drafts: safeParse(localStorage.getItem(V07_DRAFTS_KEY)) ?? {},
     },
   };
 }
@@ -62,13 +77,14 @@ function collectPayload(): SyncPayload {
 function applyPayload(payload: SyncPayload) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(payload.state.history ?? []));
   localStorage.setItem(ROUTINES_KEY, JSON.stringify(payload.state.routines ?? []));
-  if (payload.state.activeRoutineId) {
-    localStorage.setItem(ACTIVE_ROUTINE_KEY, payload.state.activeRoutineId);
-  }
+  if (payload.state.activeRoutineId) localStorage.setItem(ACTIVE_ROUTINE_KEY, payload.state.activeRoutineId);
   localStorage.setItem(DRAFTS_KEY, JSON.stringify(payload.state.drafts ?? {}));
-  if (payload.state.bodyweight != null) {
-    localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(payload.state.bodyweight));
-  }
+  if (payload.state.bodyweight != null) localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(payload.state.bodyweight));
+  if (payload.state.v07CustomExercises != null) localStorage.setItem(V07_CUSTOM_KEY, JSON.stringify(payload.state.v07CustomExercises));
+  if (payload.state.v07Notes != null) localStorage.setItem(V07_NOTES_KEY, JSON.stringify(payload.state.v07Notes));
+  if (payload.state.v07RestSeconds != null) localStorage.setItem(V07_REST_KEY, JSON.stringify(payload.state.v07RestSeconds));
+  if (payload.state.v07RoutineExtras != null) localStorage.setItem(V07_EXTRAS_KEY, JSON.stringify(payload.state.v07RoutineExtras));
+  if (payload.state.v07Drafts != null) localStorage.setItem(V07_DRAFTS_KEY, JSON.stringify(payload.state.v07Drafts));
 }
 
 function makeSyncKey() {
@@ -92,9 +108,8 @@ async function syncFetch(method: "GET" | "PUT", key: string, payload?: SyncPaylo
   try {
     data = await response.json();
   } catch {
-    // Keep a useful generic status below.
+    // Keep generic status text below.
   }
-
   return { response, data };
 }
 
@@ -112,15 +127,10 @@ export default function AppTools() {
   const lastSnapshotRef = useRef("");
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    }
-
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     const nav = navigator as Navigator & { standalone?: boolean };
-    const inStandalone = window.matchMedia("(display-mode: standalone)").matches || Boolean(nav.standalone);
-    setStandalone(inStandalone);
+    setStandalone(window.matchMedia("(display-mode: standalone)").matches || Boolean(nav.standalone));
     setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
-
     const existingKey = localStorage.getItem(SYNC_KEY_STORAGE) ?? "";
     setSyncKey(existingKey);
     autoSyncRef.current = localStorage.getItem(AUTO_SYNC_STORAGE) === "1";
@@ -129,19 +139,16 @@ export default function AppTools() {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
-
     window.addEventListener("beforeinstallprompt", handleInstall as EventListener);
     return () => window.removeEventListener("beforeinstallprompt", handleInstall as EventListener);
   }, []);
 
   useEffect(() => {
     if (!syncKey || !autoSyncRef.current) return;
-
     const interval = window.setInterval(async () => {
       const payload = collectPayload();
       const snapshot = JSON.stringify(payload.state);
       if (snapshot === lastSnapshotRef.current) return;
-
       try {
         const { response, data } = await syncFetch("PUT", syncKey, payload);
         if (response.ok) {
@@ -155,7 +162,6 @@ export default function AppTools() {
         setStatus("Offline · local data is safe");
       }
     }, 20000);
-
     return () => window.clearInterval(interval);
   }, [syncKey]);
 
@@ -171,13 +177,9 @@ export default function AppTools() {
     setBusy(true);
     try {
       const { response, data } = await syncFetch("GET", key);
-      if (response.ok) {
-        setStatus(data.found ? "Cloud connected · backup found" : "Cloud connected · no backup yet");
-      } else if (response.status === 503 || data.configured === false) {
-        setStatus("Cloud database not connected yet · local data is safe");
-      } else {
-        setStatus(data.message ?? "Cloud check failed");
-      }
+      if (response.ok) setStatus(data.found ? "Cloud connected · backup found" : "Cloud connected · no backup yet");
+      else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · local data is safe");
+      else setStatus(data.message ?? "Cloud check failed");
     } catch {
       setStatus("Offline · local data is safe");
     } finally {
@@ -196,11 +198,8 @@ export default function AppTools() {
         localStorage.setItem(AUTO_SYNC_STORAGE, "1");
         lastSnapshotRef.current = JSON.stringify(payload.state);
         setStatus("Backed up · automatic sync enabled");
-      } else if (response.status === 503 || data.configured === false) {
-        setStatus("Cloud database not connected yet · local data is safe");
-      } else {
-        setStatus(data.message ?? "Backup failed");
-      }
+      } else if (response.status === 503 || data.configured === false) setStatus("Cloud database not connected yet · local data is safe");
+      else setStatus(data.message ?? "Backup failed");
     } catch {
       setStatus("Offline · local data is safe");
     } finally {
@@ -214,11 +213,7 @@ export default function AppTools() {
     try {
       const { response, data } = await syncFetch("GET", key);
       if (!response.ok) {
-        setStatus(
-          response.status === 503 || data.configured === false
-            ? "Cloud database not connected yet · local data is safe"
-            : data.message ?? "Restore failed",
-        );
+        setStatus(response.status === 503 || data.configured === false ? "Cloud database not connected yet · local data is safe" : data.message ?? "Restore failed");
         return;
       }
       if (!data.found || !data.payload) {
@@ -226,7 +221,6 @@ export default function AppTools() {
         return;
       }
       if (!window.confirm("Replace this device's local workout data with the cloud backup?")) return;
-
       applyPayload(data.payload);
       autoSyncRef.current = true;
       localStorage.setItem(AUTO_SYNC_STORAGE, "1");
@@ -257,18 +251,14 @@ export default function AppTools() {
       setInstallPrompt(null);
       return;
     }
-
     setOpen(true);
-    setInstallHelp(
-      isIos
-        ? "On iPhone: tap Safari's Share button, then Add to Home Screen."
-        : "Open your browser menu and choose Install app or Add to Home Screen.",
-    );
+    setInstallHelp(isIos ? "On iPhone: tap Safari's Share button, then Add to Home Screen." : "Open your browser menu and choose Install app or Add to Home Screen.");
   }
 
   return (
     <>
       <div className="v05-tools" aria-label="App tools">
+        <a className="v07-gym-button" href="/gym">⚡ Gym</a>
         <button type="button" className="v06-progress-button" onClick={() => setProgressOpen(true)}>📊 Progress</button>
         <button type="button" onClick={() => setOpen(true)}>☁ Sync</button>
         {!standalone && <button type="button" onClick={installApp}>＋ Install</button>}
@@ -280,30 +270,15 @@ export default function AppTools() {
         <div className="v05-backdrop" onClick={() => setOpen(false)}>
           <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
-              <div>
-                <p>V0.6 · PWA + CLOUD</p>
-                <h2>Device & sync</h2>
-              </div>
+              <div><p>V0.7 · PWA + CLOUD</p><h2>Device & sync</h2></div>
               <button type="button" onClick={() => setOpen(false)}>×</button>
             </div>
-
             <div className="v05-status">{status}</div>
-
             <div className="v05-block">
               <h3>Cloud sync key</h3>
-              <p>Use the same key on another device to restore the same routines, drafts, workout history, and bodyweight log.</p>
+              <p>One key now covers routines, drafts, workout history, bodyweight, v0.7 custom exercises, notes, rest timers and Gym Mode drafts.</p>
               <div className="v05-key-row">
-                <input
-                  value={syncKey}
-                  onChange={(event) => {
-                    setSyncKey(event.target.value.trim());
-                    localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim());
-                    localStorage.removeItem(AUTO_SYNC_STORAGE);
-                    autoSyncRef.current = false;
-                  }}
-                  placeholder="Generate or paste sync key"
-                  spellCheck={false}
-                />
+                <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false; }} placeholder="Generate or paste sync key" spellCheck={false} />
                 <button type="button" onClick={copyKey}>Copy</button>
               </div>
               <div className="v05-actions">
@@ -313,19 +288,13 @@ export default function AppTools() {
               </div>
               <small>After the first successful backup, this device automatically pushes changes about every 20 seconds.</small>
             </div>
-
             <div className="v05-block">
               <h3>{standalone ? "Installed" : "Install on this device"}</h3>
-              <p>
-                {standalone
-                  ? "Workout Tracker is running as an installed app."
-                  : "Install it to your Home Screen for a full-screen app experience and offline shell."}
-              </p>
+              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. v0.7 launches straight into Gym Mode."}</p>
               {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
               {installHelp && <small>{installHelp}</small>}
             </div>
-
-            <p className="v05-footnote">Your workout logger remains local-first. Cloud failures never block logging.</p>
+            <p className="v05-footnote">Workout logging remains local-first. Cloud failures never block a session.</p>
           </section>
         </div>
       )}
