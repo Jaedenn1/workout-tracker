@@ -1,0 +1,331 @@
+:root {
+  --pc-pointer-x: 50vw;
+  --pc-pointer-y: 20vh;
+  --pc-ease: cubic-bezier(.2,.8,.2,1);
+}
+
+.pc-ambient-glow {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: .34;
+  background:
+    radial-gradient(360px circle at var(--pc-pointer-x) var(--pc-pointer-y), rgba(213,255,83,.075), transparent 68%),
+    radial-gradient(520px circle at calc(var(--pc-pointer-x) + 90px) calc(var(--pc-pointer-y) + 120px), rgba(91,112,255,.04), transparent 72%);
+  transition: opacity .24s ease;
+}
+
+body.pc-route-enter main:not(.v10-storage-loading) {
+  animation: pc-page-enter .38s var(--pc-ease) both;
+}
+
+body.pc-route-leave main:not(.v10-storage-loading) {
+  opacity: .72;
+  transform: translateY(4px) scale(.997);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+@keyframes pc-page-enter {
+  from { opacity: .2; transform: translateY(10px) scale(.992); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.pc-reveal {
+  opacity: 0;
+  transform: translateY(15px) scale(.988);
+  transition:
+    opacity .46s var(--pc-ease),
+    transform .46s var(--pc-ease),
+    box-shadow .2s ease,
+    border-color .2s ease;
+}
+
+.pc-reveal.pc-in-view {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.v11-home-grid .pc-reveal:nth-child(2) { transition-delay: 45ms; }
+.v11-home-grid .pc-reveal:nth-child(3) { transition-delay: 90ms; }
+.v11-home-grid .pc-reveal:nth-child(4) { transition-delay: 135ms; }
+.gym-stack .pc-reveal:nth-child(2) { transition-delay: 35ms; }
+.gym-stack .pc-reveal:nth-child(3) { transition-delay: 70ms; }
+.gym-stack .pc-reveal:nth-child(4) { transition-delay: 105ms; }
+
+/* Native-feeling navigation dock */
+.v11-bottom-nav {
+  overflow: visible;
+  transition: transform .26s var(--pc-ease), box-shadow .26s ease, border-color .26s ease;
+}
+
+.v11-bottom-nav::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10px 8% 0;
+  border-radius: 28px;
+  background: radial-gradient(ellipse at center, rgba(213,255,83,.11), transparent 68%);
+  filter: blur(15px);
+  opacity: .6;
+}
+
+.v11-bottom-nav a,
+.v11-bottom-nav button {
+  position: relative;
+  transition: color .2s ease, background .2s ease, transform .2s var(--pc-ease), box-shadow .2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v11-bottom-nav a::after,
+.v11-bottom-nav button::after {
+  content: "";
+  position: absolute;
+  left: 28%;
+  right: 28%;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--pb-lime, #d5ff53);
+  box-shadow: 0 0 12px rgba(213,255,83,.38);
+  opacity: 0;
+  transform: scaleX(.25);
+  transition: opacity .2s ease, transform .24s var(--pc-ease);
+}
+
+.v11-bottom-nav a.active,
+.v11-bottom-nav button.active {
+  transform: translateY(-3px);
+}
+
+.v11-bottom-nav a.active::after,
+.v11-bottom-nav button.active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.v11-bottom-nav a.active .v11-nav-icon,
+.v11-bottom-nav button.active .v11-nav-icon {
+  animation: pc-icon-pop .34s var(--pc-ease);
+}
+
+@keyframes pc-icon-pop {
+  0% { transform: scale(.78) translateY(2px); }
+  65% { transform: scale(1.15) translateY(-1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* Sheets and dashboards arrive like native panels */
+.v11-more-backdrop,
+.v06-backdrop,
+.v05-backdrop,
+.gym-modal-backdrop {
+  animation: pc-backdrop-in .22s ease both;
+}
+
+.v11-more-sheet,
+.v05-panel,
+.gym-modal {
+  animation: pc-sheet-in .36s cubic-bezier(.16,.82,.22,1) both;
+  transform-origin: center bottom;
+}
+
+.v06-dashboard {
+  animation: pc-dashboard-in .38s var(--pc-ease) both;
+  transform-origin: center top;
+}
+
+@keyframes pc-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pc-sheet-in {
+  from { opacity: .4; transform: translateY(28px) scale(.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pc-dashboard-in {
+  from { opacity: .35; transform: translateY(16px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Physical focus / active feedback */
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pc-pressed {
+  filter: brightness(.96) saturate(.96);
+}
+
+.v11-primary-action.pc-pressed,
+.gym-finish > button.pc-pressed,
+.v11-bottom-nav a.pc-pressed,
+.v11-bottom-nav button.pc-pressed {
+  transform: translateY(2px) scale(.985) !important;
+}
+
+.gym-set input:focus,
+.gym-set select:focus,
+.gym-note:focus,
+.v06-weight-input input:focus,
+.v10-set-row input:focus {
+  transform: translateY(-1px) scale(1.012);
+  transition: transform .18s var(--pc-ease), border-color .18s ease, box-shadow .18s ease;
+}
+
+/* Completed sets should feel rewarding, not merely recolored */
+.gym-set.done {
+  animation: pc-set-complete .38s var(--pc-ease);
+}
+
+.gym-set.done .gym-check {
+  animation: pc-check-pop .34s var(--pc-ease);
+}
+
+@keyframes pc-set-complete {
+  0% { transform: scale(.995); }
+  45% { transform: scale(1.009); box-shadow: inset 0 2px 7px rgba(0,0,0,.48), 0 0 22px rgba(213,255,83,.09); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pc-check-pop {
+  0% { transform: scale(.78) translateY(1px); }
+  60% { transform: scale(1.12) translateY(-2px); }
+  100% { transform: scale(1) translateY(-1px); }
+}
+
+.gym-rest-banner strong {
+  animation: pc-rest-breathe 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes pc-rest-breathe {
+  0%, 100% { text-shadow: 0 0 0 rgba(0,0,0,0); transform: scale(1); }
+  50% { text-shadow: 0 2px 12px rgba(62,73,16,.2); transform: scale(1.025); }
+}
+
+/* Pointer-capable devices get restrained physical parallax. */
+@media (hover: hover) and (pointer: fine) {
+  .v11-workout-hero,
+  .v11-home-card,
+  .gym-card,
+  .v06-card,
+  .v10-card {
+    transform-style: preserve-3d;
+    transform: perspective(1000px) rotateX(var(--pc-rotate-x, 0deg)) rotateY(var(--pc-rotate-y, 0deg));
+    transition: transform .2s var(--pc-ease), box-shadow .2s ease, border-color .2s ease;
+  }
+
+  .v11-workout-hero.pc-tilting,
+  .v11-home-card.pc-tilting,
+  .gym-card.pc-tilting,
+  .v06-card.pc-tilting,
+  .v10-card.pc-tilting {
+    transition-duration: 55ms;
+    border-color: rgba(213,255,83,.15);
+  }
+
+  .v11-workout-hero.pc-tilting::before,
+  .gym-card.pc-tilting::before,
+  .v06-card.pc-tilting::before,
+  .v10-card.pc-tilting::before {
+    background:
+      radial-gradient(circle at var(--pc-glow-x, 50%) var(--pc-glow-y, 50%), rgba(255,255,255,.07), transparent 30%),
+      linear-gradient(180deg, rgba(255,255,255,.035), transparent);
+  }
+
+  .v11-home-card:hover,
+  .gym-card:hover,
+  .v06-card:hover,
+  .v10-card:hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.08),
+      inset 0 -1px 0 rgba(0,0,0,.48),
+      0 24px 48px rgba(0,0,0,.38),
+      0 7px 16px rgba(0,0,0,.28);
+  }
+}
+
+/* Progress cockpit feels live while staying readable. */
+.v06-chart-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.v06-chart-wrap::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 18%, rgba(213,255,83,.055) 48%, transparent 72%);
+  transform: translateX(-120%);
+  animation: pc-chart-scan 5.5s ease-in-out infinite;
+}
+
+@keyframes pc-chart-scan {
+  0%, 62% { transform: translateX(-120%); opacity: 0; }
+  72% { opacity: 1; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+.v06-muscle-list i b {
+  transform-origin: left center;
+  animation: pc-bar-grow .65s var(--pc-ease) both;
+}
+
+@keyframes pc-bar-grow {
+  from { transform: scaleX(.08); opacity: .45; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+/* Mobile: keep motion fast and tactile, never floaty. */
+@media (max-width: 700px) {
+  .pc-ambient-glow { opacity: .18; }
+
+  body.pc-route-enter main:not(.v10-storage-loading) {
+    animation-duration: .28s;
+  }
+
+  .pc-reveal {
+    transform: translateY(10px) scale(.994);
+    transition-duration: .34s;
+  }
+
+  .v11-bottom-nav a.active,
+  .v11-bottom-nav button.active {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+
+  .pc-reveal,
+  .pc-reveal.pc-in-view,
+  body.pc-route-enter main,
+  body.pc-route-leave main,
+  .v11-workout-hero,
+  .v11-home-card,
+  .gym-card,
+  .v06-card,
+  .v10-card {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .pc-ambient-glow { display: none; }
+}
