@@ -1,15 +1,17 @@
 {
   "name": "workout-tracker",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
+    "dexie": "4.4.5",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
