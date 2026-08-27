@@ -91,6 +91,34 @@
   font-weight: 800;
 }
 
+/* Hide old milestone badges without changing compatibility/versioned data logic. */
+.health-hero .health-eyebrow,
+.watch-hero .watch-eyebrow,
+.v10-hero .v10-eyebrow,
+.v05-heading p {
+  font-size: 0;
+}
+
+.health-hero .health-eyebrow::after {
+  content: "APPLE HEALTH";
+  font-size: .72rem;
+}
+
+.watch-hero .watch-eyebrow::after {
+  content: "APPLE WATCH";
+  font-size: .72rem;
+}
+
+.v10-hero .v10-eyebrow::after {
+  content: "DATA SAFETY";
+  font-size: .72rem;
+}
+
+.v05-heading p::after {
+  content: "WORKOUT TRACKER · V1.1";
+  font-size: .72rem;
+}
+
 .v10-back,
 .health-back,
 .watch-back {
