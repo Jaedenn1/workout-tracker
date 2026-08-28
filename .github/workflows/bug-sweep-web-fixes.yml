@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/bug-sweep-web-fixes.yml"
+      - ".github/scripts/bug_sweep_web_fixes.py"
 
 permissions:
   contents: write
