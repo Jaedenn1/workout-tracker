@@ -31,7 +31,7 @@ type BodyweightEntry = {
   recordedAt?: string;
 };
 
-type DraftMap = Record<string, { startedAt?: string; exercises?: unknown[]; pausedAt?: string | null }>;
+type DraftMap = Record<string, { startedAt?: string | null; sessionActive?: boolean; exercises?: unknown[]; pausedAt?: string | null }>;
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -58,6 +58,15 @@ function formatDuration(seconds = 0) {
   return `${minutes} min`;
 }
 
+function draftIsActive(draft: DraftMap[string] | null | undefined) {
+  if (!draft?.startedAt) return false;
+  const declaredActive = draft.sessionActive ?? true;
+  if (!declaredActive) return false;
+  const started = new Date(draft.startedAt).getTime();
+  const age = Date.now() - started;
+  return Number.isFinite(started) && age >= 0 && age <= 6 * 60 * 60 * 1000;
+}
+
 export default function Home() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -82,6 +91,7 @@ export default function Home() {
 
   const recentWorkout = history[0] ?? null;
   const currentDraft = activeRoutine ? drafts[activeRoutine.id] : null;
+  const activeDraft = draftIsActive(currentDraft) ? currentDraft : null;
 
   const weekly = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -133,8 +143,8 @@ export default function Home() {
           <p className="v11-kicker">TODAY&apos;S WORKOUT</p>
           <h2>{activeRoutine?.name ?? "Choose a routine"}</h2>
           <p>
-            {currentDraft
-              ? currentDraft.pausedAt
+            {activeDraft
+              ? activeDraft.pausedAt
                 ? "Your workout is paused and saved exactly where you left it."
                 : "You have an unfinished workout ready to continue."
               : activeRoutine
@@ -143,7 +153,7 @@ export default function Home() {
           </p>
         </div>
         <a className="v11-primary-action" href="/gym">
-          {currentDraft ? (currentDraft.pausedAt ? "Resume paused workout" : "Resume workout") : "Start workout"}
+          {activeDraft ? (activeDraft.pausedAt ? "Resume paused workout" : "Resume workout") : "Start workout"}
           <span>→</span>
         </a>
       </section>

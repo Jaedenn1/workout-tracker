@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createSafetySnapshot, db, removeWorkout } from "../lib/database";
+import { createSafetySnapshot, db, persistLegacyKey, removeWorkout } from "../lib/database";
 
 const HISTORY_KEY = "workout-tracker:v0.2:history";
 
@@ -142,9 +142,10 @@ export default function HistoryManager() {
       const rows = await db.workouts.orderBy("completedAt").reverse().toArray();
       const corrected = recompute(draft);
       const history = rows.map((row) => row.id === corrected.id ? corrected : row.payload);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      const value = JSON.stringify(history);
+      localStorage.setItem(HISTORY_KEY, value);
+      await persistLegacyKey(HISTORY_KEY, value);
       setStatus("Corrections saved. Volume/e1RM were recalculated; old PR labels were cleared for this edited workout.");
-      await new Promise((resolve) => window.setTimeout(resolve, 40));
       await refresh(corrected.id);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save those corrections.");

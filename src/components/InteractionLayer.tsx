@@ -54,12 +54,15 @@ export default function InteractionLayer() {
   const router = useRouter();
 
   useEffect(() => {
-    document.body.classList.remove("pc-route-enter");
+    document.body.classList.remove("pc-route-enter", "pc-route-leave");
+    let second: number | null = null;
     const first = window.requestAnimationFrame(() => {
-      const second = window.requestAnimationFrame(() => document.body.classList.add("pc-route-enter"));
-      return () => window.cancelAnimationFrame(second);
+      second = window.requestAnimationFrame(() => document.body.classList.add("pc-route-enter"));
     });
-    return () => window.cancelAnimationFrame(first);
+    return () => {
+      window.cancelAnimationFrame(first);
+      if (second != null) window.cancelAnimationFrame(second);
+    };
   }, [pathname]);
 
   useEffect(() => {

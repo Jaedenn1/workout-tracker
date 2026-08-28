@@ -82,6 +82,7 @@ function applyPayload(payload: SyncPayload) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(payload.state.history ?? []));
   localStorage.setItem(ROUTINES_KEY, JSON.stringify(payload.state.routines ?? []));
   if (payload.state.activeRoutineId) localStorage.setItem(ACTIVE_ROUTINE_KEY, payload.state.activeRoutineId);
+  else localStorage.removeItem(ACTIVE_ROUTINE_KEY);
   localStorage.setItem(DRAFTS_KEY, JSON.stringify(payload.state.drafts ?? {}));
   if (payload.state.bodyweight != null) localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(payload.state.bodyweight));
   if (payload.state.v07CustomExercises != null) localStorage.setItem(V07_CUSTOM_KEY, JSON.stringify(payload.state.v07CustomExercises));
@@ -129,7 +130,7 @@ export default function AppTools() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [installHelp, setInstallHelp] = useState("");
-  const autoSyncRef = useRef(false);
+  const [autoSync, setAutoSync] = useState(false);
   const lastSnapshotRef = useRef("");
 
   useEffect(() => {
@@ -139,7 +140,7 @@ export default function AppTools() {
     setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
     const existingKey = localStorage.getItem(SYNC_KEY_STORAGE) ?? "";
     setSyncKey(existingKey);
-    autoSyncRef.current = localStorage.getItem(AUTO_SYNC_STORAGE) === "1";
+    setAutoSync(localStorage.getItem(AUTO_SYNC_STORAGE) === "1");
 
     const handleInstall = (event: Event) => {
       event.preventDefault();
@@ -159,7 +160,7 @@ export default function AppTools() {
   }, [pathname]);
 
   useEffect(() => {
-    if (!syncKey || !autoSyncRef.current) return;
+    if (!syncKey || !autoSync) return;
     const interval = window.setInterval(async () => {
       const payload = collectPayload();
       const snapshot = JSON.stringify(payload.state);
@@ -171,7 +172,8 @@ export default function AppTools() {
           await db.syncQueue.clear();
           setStatus("Cloud sync ready · queued changes backed up");
         } else if (response.status === 503 || data.configured === false) {
-          autoSyncRef.current = false;
+          setAutoSync(false);
+          localStorage.setItem(AUTO_SYNC_STORAGE, "0");
           setStatus("Cloud database not connected yet · IndexedDB data is safe");
         }
       } catch {
@@ -179,7 +181,7 @@ export default function AppTools() {
       }
     }, 20000);
     return () => window.clearInterval(interval);
-  }, [syncKey]);
+  }, [syncKey, autoSync]);
 
   function ensureKey() {
     const key = syncKey.trim() || makeSyncKey();
@@ -210,7 +212,7 @@ export default function AppTools() {
     try {
       const { response, data } = await syncFetch("PUT", key, payload);
       if (response.ok) {
-        autoSyncRef.current = true;
+        setAutoSync(true);
         localStorage.setItem(AUTO_SYNC_STORAGE, "1");
         lastSnapshotRef.current = JSON.stringify(payload.state);
         await db.syncQueue.clear();
@@ -240,7 +242,7 @@ export default function AppTools() {
       if (!window.confirm("Replace this device's local workout data with the cloud backup?")) return;
       applyPayload(data.payload);
       await db.syncQueue.clear();
-      autoSyncRef.current = true;
+      setAutoSync(true);
       localStorage.setItem(AUTO_SYNC_STORAGE, "1");
       setStatus("Cloud backup restored");
       window.location.reload();
@@ -346,7 +348,7 @@ export default function AppTools() {
               <h3>Cloud backup</h3>
               <p>Your routines, drafts, history, bodyweight, Gym Mode settings and Health imports use one private sync key. Local IndexedDB remains the device-side source of truth.</p>
               <div className="v05-key-row">
-                <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false; }} placeholder="Generate or paste sync key" spellCheck={false} />
+                <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); setAutoSync(false); }} placeholder="Generate or paste sync key" spellCheck={false} />
                 <button type="button" onClick={copyKey}>Copy key</button>
               </div>
               <div className="v05-actions">
