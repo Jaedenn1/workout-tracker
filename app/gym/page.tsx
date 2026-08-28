@@ -1,5 +1,5 @@
-import GymLogger from "../../src/components/GymLogger";
+import FirstWorkoutGymLogger from "../../src/components/FirstWorkoutGymLogger";
 
 export default function GymPage() {
-  return <GymLogger />;
+  return <FirstWorkoutGymLogger />;
 }
