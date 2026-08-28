@@ -1,0 +1,37 @@
+name: Guarded web bug sweep fixes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bug-sweep-web-fixes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply bug sweep patch
+        run: python3 .github/scripts/bug_sweep_web_fixes.py
+      - name: Install dependencies
+        run: npm install
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Commit verified fixes
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git rm .github/scripts/bug_sweep_web_fixes.py .github/workflows/bug-sweep-web-fixes.yml
+          git add app/page.tsx src/components/HistoryManager.tsx src/components/AppTools.tsx src/components/InteractionLayer.tsx package.json public/sw.js tsconfig.json
+          git commit -m "Fix web state and sync bugs"
+          git push origin main
