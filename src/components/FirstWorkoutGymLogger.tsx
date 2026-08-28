@@ -89,7 +89,8 @@ type ExtraMap = Record<string, string[]>;
 
 type SessionDraft = {
   exercises: GymExercise[];
-  startedAt: string;
+  startedAt: string | null;
+  sessionActive?: boolean;
   pausedAt?: string | null;
   totalPausedSeconds?: number;
   restRemaining?: number;
@@ -334,11 +335,28 @@ function plateBreakdown(target: number, bar: number) {
   return { perSide, result, remainder: remaining };
 }
 
-function elapsedSeconds(startedAt: string, pausedSeconds: number, pausedAt: string | null) {
+function elapsedSeconds(startedAt: string | null, pausedSeconds: number, pausedAt: string | null) {
+  if (!startedAt) return 0;
   const start = new Date(startedAt).getTime();
   const end = pausedAt ? new Date(pausedAt).getTime() : Date.now();
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
   return Math.max(0, Math.floor((end - start) / 1000) - Math.max(0, Math.floor(pausedSeconds)));
+}
+
+function draftHasMeaningfulActivity(draft: Partial<SessionDraft>) {
+  return Boolean(
+    draft.exercises?.some((exercise) =>
+      exercise.sets?.some((set) => set.completed || set.reps != null || set.rir != null),
+    ),
+  );
+}
+
+function draftSessionIsActive(draft: Partial<SessionDraft>) {
+  const declaredActive = draft.sessionActive ?? draftHasMeaningfulActivity(draft);
+  if (!declaredActive || !draft.startedAt) return false;
+  const started = new Date(draft.startedAt).getTime();
+  const age = Date.now() - started;
+  return Number.isFinite(started) && age >= 0 && age <= 6 * 60 * 60 * 1000;
 }
 
 function previousLabel(previous?: PreviousSet) {
@@ -377,7 +395,8 @@ export default function FirstWorkoutGymLogger() {
   const [rests, setRests] = useState<RestMap>({});
   const [extras, setExtras] = useState<ExtraMap>({});
   const [exercises, setExercises] = useState<GymExercise[]>([]);
-  const [startedAt, setStartedAt] = useState(() => new Date().toISOString());
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [sessionActive, setSessionActive] = useState(false);
   const [pausedAt, setPausedAt] = useState<string | null>(null);
   const [totalPausedSeconds, setTotalPausedSeconds] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -391,6 +410,7 @@ export default function FirstWorkoutGymLogger() {
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [finishOpen, setFinishOpen] = useState(false);
   const [finishHolding, setFinishHolding] = useState(false);
+  const [cancelArmed, setCancelArmed] = useState(false);
   const [restSound, setRestSound] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
@@ -456,14 +476,22 @@ export default function FirstWorkoutGymLogger() {
         .map((exercise) => migrateExercise(exercise, parsedHistory, parsedCustom, parsedNotes, parsedRests))
         .filter((exercise): exercise is GymExercise => Boolean(exercise));
       loaded = migrated.length ? migrated : makeRoutine(target, parsedHistory, parsedCustom, parsedNotes, parsedRests, parsedExtras);
-      setStartedAt(draft.startedAt ?? new Date().toISOString());
-      if ("pausedAt" in draft) setPausedAt(draft.pausedAt ?? null);
-      if ("totalPausedSeconds" in draft) setTotalPausedSeconds(Number(draft.totalPausedSeconds ?? 0));
-      if ("restRemaining" in draft) setRestRemaining(Number(draft.restRemaining ?? 0));
+      const activeDraft = draftSessionIsActive(draft as SessionDraft);
+      setSessionActive(activeDraft);
+      setStartedAt(activeDraft ? (draft.startedAt ?? null) : null);
+      setPausedAt(activeDraft && "pausedAt" in draft ? (draft.pausedAt ?? null) : null);
+      setTotalPausedSeconds(activeDraft && "totalPausedSeconds" in draft ? Number(draft.totalPausedSeconds ?? 0) : 0);
+      setRestRemaining(activeDraft && "restRemaining" in draft ? Number(draft.restRemaining ?? 0) : 0);
       if ("sessionNote" in draft) setSessionNote(String(draft.sessionNote ?? ""));
       setCollapsed("collapsed" in draft && draft.collapsed ? draft.collapsed : defaultCollapsed(loaded));
     } else {
       loaded = makeRoutine(target, parsedHistory, parsedCustom, parsedNotes, parsedRests, parsedExtras);
+      setSessionActive(false);
+      setStartedAt(null);
+      setPausedAt(null);
+      setTotalPausedSeconds(0);
+      setRestRemaining(0);
+      setElapsed(0);
       setExercises(loaded);
       setCollapsed(defaultCollapsed(loaded));
     }
@@ -502,6 +530,7 @@ export default function FirstWorkoutGymLogger() {
     drafts[activeRoutineId] = {
       exercises,
       startedAt,
+      sessionActive,
       pausedAt,
       totalPausedSeconds,
       restRemaining,
@@ -513,6 +542,7 @@ export default function FirstWorkoutGymLogger() {
   }, [
     exercises,
     startedAt,
+      sessionActive,
     pausedAt,
     totalPausedSeconds,
     restRemaining,
@@ -523,18 +553,21 @@ export default function FirstWorkoutGymLogger() {
   ]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !sessionActive || !startedAt) {
+      setElapsed(0);
+      return;
+    }
     const tick = () => setElapsed(elapsedSeconds(startedAt, totalPausedSeconds, pausedAt));
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [hydrated, startedAt, totalPausedSeconds, pausedAt]);
+  }, [hydrated, sessionActive, startedAt, totalPausedSeconds, pausedAt]);
 
   useEffect(() => {
-    if (restRemaining <= 0 || pausedAt) return;
+    if (!sessionActive || restRemaining <= 0 || pausedAt) return;
     const timer = window.setInterval(() => setRestRemaining((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [restRemaining, pausedAt]);
+  }, [sessionActive, restRemaining, pausedAt]);
 
   useEffect(() => {
     const previous = previousRestRef.current;
@@ -576,7 +609,7 @@ export default function FirstWorkoutGymLogger() {
     }
 
     async function acquire() {
-      if (pausedAt || document.visibilityState !== "visible" || !nav.wakeLock?.request || wakeLockRef.current) return;
+      if (!sessionActive || pausedAt || document.visibilityState !== "visible" || !nav.wakeLock?.request || wakeLockRef.current) return;
       try {
         wakeLockRef.current = await nav.wakeLock.request("screen");
         setWakeLockActive(true);
@@ -585,14 +618,14 @@ export default function FirstWorkoutGymLogger() {
       }
     }
 
-    void (pausedAt ? release() : acquire());
-    const onVisibility = () => void (document.visibilityState === "visible" && !pausedAt ? acquire() : release());
+    void (!sessionActive || pausedAt ? release() : acquire());
+    const onVisibility = () => void (document.visibilityState === "visible" && sessionActive && !pausedAt ? acquire() : release());
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       void release();
     };
-  }, [hydrated, pausedAt]);
+  }, [hydrated, sessionActive, pausedAt]);
 
   const stats = useMemo(() => {
     const working = exercises.flatMap((exercise) => workingPerformance(exercise.sets));
@@ -650,6 +683,7 @@ export default function FirstWorkoutGymLogger() {
     drafts[activeRoutineId] = {
       exercises,
       startedAt,
+      sessionActive,
       pausedAt,
       totalPausedSeconds,
       restRemaining,
@@ -672,15 +706,19 @@ export default function FirstWorkoutGymLogger() {
         .map((exercise) => migrateExercise(exercise, history, customExercises, notes, rests))
         .filter((exercise): exercise is GymExercise => Boolean(exercise));
       loaded = migrated.length ? migrated : makeRoutine(target, history, customExercises, notes, rests, extras);
-      setStartedAt(draft.startedAt);
-      setPausedAt(draft.pausedAt ?? null);
-      setTotalPausedSeconds(Number(draft.totalPausedSeconds ?? 0));
-      setRestRemaining(Number(draft.restRemaining ?? 0));
+      const activeDraft = draftSessionIsActive(draft);
+      setSessionActive(activeDraft);
+      setStartedAt(activeDraft ? draft.startedAt : null);
+      setPausedAt(activeDraft ? (draft.pausedAt ?? null) : null);
+      setTotalPausedSeconds(activeDraft ? Number(draft.totalPausedSeconds ?? 0) : 0);
+      setRestRemaining(activeDraft ? Number(draft.restRemaining ?? 0) : 0);
       setSessionNote(draft.sessionNote ?? "");
       setCollapsed(draft.collapsed ?? defaultCollapsed(loaded));
     } else {
       loaded = makeRoutine(target, history, customExercises, notes, rests, extras);
-      setStartedAt(new Date().toISOString());
+      setSessionActive(false);
+      setStartedAt(null);
+      setElapsed(0);
       setPausedAt(null);
       setTotalPausedSeconds(0);
       setRestRemaining(0);
@@ -691,10 +729,29 @@ export default function FirstWorkoutGymLogger() {
     setActiveRoutineId(id);
     setEditingCompleted({});
     localStorage.setItem(ACTIVE_ROUTINE_KEY, id);
-    setNotice(draft ? `Resumed saved ${target.name} session.` : `Started ${target.name}.`);
+    const activeDraft = draft ? draftSessionIsActive(draft) : false;
+    setNotice(activeDraft ? `Resumed saved ${target.name} session.` : `${target.name} ready. Timer starts when you start logging.`);
+  }
+
+  function startWorkout() {
+    if (sessionActive) return;
+    setSessionActive(true);
+    setStartedAt(new Date().toISOString());
+    setElapsed(0);
+    setPausedAt(null);
+    setTotalPausedSeconds(0);
+    setNotice("Workout started. Timer is running.");
+  }
+
+  function ensureSessionStarted() {
+    if (!sessionActive) startWorkout();
   }
 
   function togglePause() {
+    if (!sessionActive) {
+      setNotice("No workout is running yet. Tap Start or log your first set.");
+      return;
+    }
     if (pausedAt) {
       const pausedFor = Math.max(0, Math.floor((Date.now() - new Date(pausedAt).getTime()) / 1000));
       setTotalPausedSeconds((current) => current + pausedFor);
@@ -707,6 +764,7 @@ export default function FirstWorkoutGymLogger() {
   }
 
   function updateSet(exerciseId: string, setId: string, field: "weight" | "reps" | "rir", raw: string) {
+    if (raw !== "") ensureSessionStarted();
     const value = raw === "" ? null : Number(raw);
     setExercises((current) =>
       current.map((exercise) =>
@@ -728,6 +786,7 @@ export default function FirstWorkoutGymLogger() {
   }
 
   function copyPrevious(exerciseId: string, setId: string, index: number) {
+    ensureSessionStarted();
     setExercises((current) =>
       current.map((exercise) => {
         if (exercise.id !== exerciseId) return exercise;
@@ -778,6 +837,7 @@ export default function FirstWorkoutGymLogger() {
     if (!exercise || !target) return;
     snapshotUndo(target.completed ? "Reopened set" : "Completed set");
     const completing = !target.completed;
+    if (completing) ensureSessionStarted();
     let shouldRest = completing;
     if (completing && exercise.supersetGroup) {
       const partners = exercises.filter((item) => item.id !== exercise.id && item.supersetGroup === exercise.supersetGroup);
@@ -973,6 +1033,43 @@ export default function FirstWorkoutGymLogger() {
     setRestRemaining(0);
   }
 
+  function cancelWorkout() {
+    if (!sessionActive) {
+      setNotice("No workout is currently running.");
+      setCancelArmed(false);
+      return;
+    }
+    if (!cancelArmed) {
+      setCancelArmed(true);
+      setNotice("Tap Cancel workout again within 5 seconds to discard this session.");
+      window.setTimeout(() => setCancelArmed(false), 5000);
+      return;
+    }
+
+    const drafts = readJson<DraftMap>(DRAFTS_KEY, {});
+    delete drafts[activeRoutine.id];
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+    const legacyDrafts = readJson<Record<string, unknown>>(LEGACY_DRAFTS_KEY, {});
+    delete legacyDrafts[activeRoutine.id];
+    localStorage.setItem(LEGACY_DRAFTS_KEY, JSON.stringify(legacyDrafts));
+
+    const fresh = makeRoutine(activeRoutine, history, customExercises, notes, rests, extras);
+    setExercises(fresh);
+    setSessionActive(false);
+    setStartedAt(null);
+    setElapsed(0);
+    setPausedAt(null);
+    setTotalPausedSeconds(0);
+    setRestRemaining(0);
+    setSessionNote("");
+    setCollapsed(defaultCollapsed(fresh));
+    setEditingCompleted({});
+    setFinishOpen(false);
+    setCancelArmed(false);
+    setSavedAt(null);
+    setNotice("Workout canceled. Nothing was saved to History.");
+  }
+
   function finishWorkout() {
     const working = exercises.flatMap((exercise) => workingPerformance(exercise.sets));
     if (!working.length) {
@@ -1050,7 +1147,9 @@ export default function FirstWorkoutGymLogger() {
     });
     setHistory(nextHistory);
     setExercises(nextExercises);
-    setStartedAt(new Date().toISOString());
+    setSessionActive(false);
+    setStartedAt(null);
+    setElapsed(0);
     setPausedAt(null);
     setTotalPausedSeconds(0);
     setRestRemaining(0);
@@ -1082,7 +1181,7 @@ export default function FirstWorkoutGymLogger() {
   }
 
   return (
-    <main className={`gym-shell gym-v12 ${pausedAt ? "session-paused" : ""}`}>
+    <main className={`gym-shell gym-v12 ${sessionActive && pausedAt ? "session-paused" : ""}`}>
       <header className="gym-hero gym-v12-hero">
         <div>
           <p className="gym-eyebrow">FIRST WORKOUT READY</p>
@@ -1090,14 +1189,36 @@ export default function FirstWorkoutGymLogger() {
           <p className="gym-muted">Log the set in front of you. Everything else stays one tap deeper.</p>
         </div>
         <div className="gym-v12-session">
-          <span>{pausedAt ? "PAUSED" : "SESSION"}</span>
-          <strong>{formatDuration(elapsed)}</strong>
-          <small>{savedAt ? "Saved locally ✓" : "Local-first"}{wakeLockActive ? " · screen awake" : ""}</small>
-          <button className={pausedAt ? "resume" : "pause"} onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</button>
+          <span>{!sessionActive ? "READY" : pausedAt ? "PAUSED" : "SESSION"}</span>
+          <strong>{sessionActive ? formatDuration(elapsed) : "0:00"}</strong>
+          <small>{!sessionActive ? "Timer starts with Start or your first logged set" : `${savedAt ? "Saved locally ✓" : "Local-first"}${wakeLockActive ? " · screen awake" : ""}`}</small>
+          <div className="gym-session-actions">
+            {!sessionActive ? (
+              <button className="resume" onClick={startWorkout}>▶ Start workout</button>
+            ) : (
+              <button className={pausedAt ? "resume" : "pause"} onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</button>
+            )}
+            <details className="gym-session-menu">
+              <summary>Session menu <span>⌄</span></summary>
+              <div>
+                <strong>Session controls</strong>
+                {sessionActive ? (
+                  <>
+                    <p>Canceling discards this in-progress workout and does not save it to History.</p>
+                    <button className={`danger ${cancelArmed ? "armed" : ""}`} onClick={cancelWorkout}>
+                      {cancelArmed ? "Tap again to discard" : "Cancel workout"}
+                    </button>
+                  </>
+                ) : (
+                  <p>No workout is running. Start when you are ready.</p>
+                )}
+              </div>
+            </details>
+          </div>
         </div>
       </header>
 
-      {pausedAt && (
+      {sessionActive && pausedAt && (
         <section className="gym-pause-banner">
           <div><strong>Session paused</strong><span>Workout time and rest time are frozen.</span></div>
           <button onClick={togglePause}>Resume session</button>
