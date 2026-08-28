@@ -70,18 +70,17 @@ replace_once(
     '  }, [syncKey]);',
     '  }, [syncKey, autoSync]);',
 )
-# Two enable sites: manual backup and cloud restore.
-p = Path("src/components/AppTools.tsx")
-text = p.read_text()
-count = text.count('        autoSyncRef.current = true;\n        localStorage.setItem(AUTO_SYNC_STORAGE, "1");')
-if count != 2:
-    raise SystemExit(f"Expected two autosync enable sites, found {count}")
-text = text.replace(
-    '        autoSyncRef.current = true;\n        localStorage.setItem(AUTO_SYNC_STORAGE, "1");',
-    '        setAutoSync(true);\n        localStorage.setItem(AUTO_SYNC_STORAGE, "1");',
+replace_once(
+    "src/components/AppTools.tsx",
+    '''        autoSyncRef.current = true;\n        localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n        lastSnapshotRef.current = JSON.stringify(payload.state);''',
+    '''        setAutoSync(true);\n        localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n        lastSnapshotRef.current = JSON.stringify(payload.state);''',
 )
-p.write_text(text)
-if "autoSyncRef" in p.read_text():
+replace_once(
+    "src/components/AppTools.tsx",
+    '''      autoSyncRef.current = true;\n      localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n      setStatus("Cloud backup restored");''',
+    '''      setAutoSync(true);\n      localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n      setStatus("Cloud backup restored");''',
+)
+if "autoSyncRef" in Path("src/components/AppTools.tsx").read_text():
     raise SystemExit("autoSyncRef references remain after patch")
 
 # A cloud payload with no active routine must clear stale device selection.
