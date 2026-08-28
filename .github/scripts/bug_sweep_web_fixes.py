@@ -80,6 +80,11 @@ replace_once(
     '''      autoSyncRef.current = true;\n      localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n      setStatus("Cloud backup restored");''',
     '''      setAutoSync(true);\n      localStorage.setItem(AUTO_SYNC_STORAGE, "1");\n      setStatus("Cloud backup restored");''',
 )
+replace_once(
+    "src/components/AppTools.tsx",
+    'localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false;',
+    'localStorage.removeItem(AUTO_SYNC_STORAGE); setAutoSync(false);',
+)
 if "autoSyncRef" in Path("src/components/AppTools.tsx").read_text():
     raise SystemExit("autoSyncRef references remain after patch")
 
