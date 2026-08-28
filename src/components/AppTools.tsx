@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import ProgressDashboard from "./ProgressDashboard";
 import { db } from "../lib/database";
 
 const SYNC_KEY_STORAGE = "workout-tracker:v0.5:sync-key";
@@ -123,7 +122,6 @@ export default function AppTools() {
   const pathname = usePathname();
   const [syncOpen, setSyncOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [progressOpen, setProgressOpen] = useState(false);
   const [syncKey, setSyncKey] = useState("");
   const [status, setStatus] = useState("IndexedDB-backed · local-first");
   const [busy, setBusy] = useState(false);
@@ -147,7 +145,7 @@ export default function AppTools() {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
-    const handleProgress = () => setProgressOpen(true);
+    const handleProgress = () => window.location.assign("/progress");
     window.addEventListener("beforeinstallprompt", handleInstall as EventListener);
     window.addEventListener("workout-tracker:open-progress", handleProgress);
     return () => {
@@ -276,6 +274,7 @@ export default function AppTools() {
     setInstallHelp(isIos ? "On iPhone: tap Safari's Share button, then Add to Home Screen." : "Open your browser menu and choose Install app or Add to Home Screen.");
   }
 
+  const progressIsActive = pathname.startsWith("/progress") || pathname.startsWith("/bodyweight");
   const moreIsActive = ["/data", "/health", "/watch"].some((route) => pathname.startsWith(route));
 
   return (
@@ -290,9 +289,9 @@ export default function AppTools() {
         <a className={pathname.startsWith("/history") ? "active" : ""} href="/history">
           <span className="v11-nav-icon">◷</span><span>History</span>
         </a>
-        <button className={progressOpen ? "active" : ""} type="button" onClick={() => setProgressOpen(true)}>
+        <a className={progressIsActive ? "active" : ""} href="/progress">
           <span className="v11-nav-icon">▥</span><span>Progress</span>
-        </button>
+        </a>
         <button className={moreOpen || moreIsActive ? "active" : ""} type="button" onClick={() => setMoreOpen((value) => !value)}>
           <span className="v11-nav-icon">•••</span><span>More</span>
         </button>
@@ -300,54 +299,70 @@ export default function AppTools() {
 
       {moreOpen && (
         <div className="v11-more-backdrop" onClick={() => setMoreOpen(false)}>
-          <section className="v11-more-sheet" onClick={(event) => event.stopPropagation()} aria-label="More options">
+          <section className="v11-more-sheet v16-more-sheet" onClick={(event) => event.stopPropagation()} aria-label="More options">
             <div className="v11-more-handle" />
             <div className="v11-more-heading">
-              <div><p>MORE</p><h2>Tools & connections</h2></div>
+              <div><p>MORE</p><h2>Settings & connections</h2></div>
               <button type="button" onClick={() => setMoreOpen(false)}>×</button>
             </div>
-            <div className="v11-more-grid">
-              <a href="/data"><span>🛡</span><strong>Data Center</strong><small>Backups, restore & export</small></a>
-              <a href="/health"><span>🍎</span><strong>Apple Health</strong><small>HealthKit bridge</small></a>
-              <a href="/watch"><span>⌚</span><strong>Apple Watch</strong><small>Watch session bridge</small></a>
-              <button type="button" onClick={() => { setMoreOpen(false); setSyncOpen(true); }}><span>☁</span><strong>Sync</strong><small>Device & cloud settings</small></button>
-              {!standalone && <button type="button" onClick={installApp}><span>＋</span><strong>Install App</strong><small>Add to Home Screen</small></button>}
+
+            <div className="v16-more-section">
+              <p>DATA & DEVICE</p>
+              <div className="v16-more-list">
+                <a href="/data"><span>🛡</span><div><strong>Data Center</strong><small>Backups, restore and export</small></div><b>›</b></a>
+                <button type="button" onClick={() => { setMoreOpen(false); setSyncOpen(true); }}><span>☁</span><div><strong>Device & Sync</strong><small>Cloud backup and this device</small></div><b>›</b></button>
+              </div>
             </div>
+
+            <div className="v16-more-section">
+              <p>APPLE</p>
+              <div className="v16-more-list">
+                <a href="/health"><span>🍎</span><div><strong>Apple Health</strong><small>HealthKit bridge and imports</small></div><b>›</b></a>
+                <a href="/watch"><span>⌚</span><div><strong>Apple Watch</strong><small>Watch workout session bridge</small></div><b>›</b></a>
+              </div>
+            </div>
+
+            {!standalone && (
+              <div className="v16-more-section">
+                <p>APP</p>
+                <div className="v16-more-list">
+                  <button type="button" onClick={installApp}><span>＋</span><div><strong>Install Workout Tracker</strong><small>Add the app to your Home Screen</small></div><b>›</b></button>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       )}
 
-      {progressOpen && <ProgressDashboard onClose={() => setProgressOpen(false)} />}
-
       {syncOpen && (
         <div className="v05-backdrop" onClick={() => setSyncOpen(false)}>
-          <section className="v05-panel" onClick={(event) => event.stopPropagation()}>
+          <section className="v05-panel v16-sync-panel" onClick={(event) => event.stopPropagation()}>
             <div className="v05-heading">
-              <div><p>V1.1 · PHASE A</p><h2>Device & sync</h2></div>
+              <div><p>WORKOUT TRACKER</p><h2>Device & sync</h2></div>
               <button type="button" onClick={() => setSyncOpen(false)}>×</button>
             </div>
             <div className="v05-status">{status}</div>
             <div className="v05-block">
-              <h3>Cloud sync key</h3>
-              <p>One key covers routines, drafts, workout history, bodyweight, Gym Mode data, and locally imported Apple Health snapshots. IndexedDB remains the device-side durable source.</p>
+              <h3>Cloud backup</h3>
+              <p>Your routines, drafts, history, bodyweight, Gym Mode settings and Health imports use one private sync key. Local IndexedDB remains the device-side source of truth.</p>
               <div className="v05-key-row">
                 <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); autoSyncRef.current = false; }} placeholder="Generate or paste sync key" spellCheck={false} />
-                <button type="button" onClick={copyKey}>Copy</button>
+                <button type="button" onClick={copyKey}>Copy key</button>
               </div>
               <div className="v05-actions">
                 <button type="button" disabled={busy} onClick={backupNow}>Back up now</button>
-                <button type="button" disabled={busy} onClick={restoreCloud}>Restore cloud</button>
+                <button type="button" disabled={busy} onClick={restoreCloud}>Restore</button>
                 <button type="button" disabled={busy} onClick={checkCloud}>Check</button>
               </div>
-              <small>After the first successful backup, this device pushes changes about every 20 seconds and clears the local sync queue only after the server accepts the snapshot.</small>
+              <small>After the first successful backup, this device pushes changes about every 20 seconds and clears the local queue only after the server accepts the snapshot.</small>
             </div>
             <div className="v05-block">
-              <h3>{standalone ? "Installed" : "Install on this device"}</h3>
-              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it to your Home Screen. Phase A now launches into the new Home dashboard."}</p>
+              <h3>{standalone ? "Installed app" : "Install on this device"}</h3>
+              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it so the tracker opens like a normal app from your Home Screen."}</p>
               {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
               {installHelp && <small>{installHelp}</small>}
             </div>
-            <p className="v05-footnote">Workout logging remains local-first. HealthKit, Watch sync, cloud sync, and internet failures never block a session.</p>
+            <p className="v05-footnote">Workout logging stays local-first. HealthKit, Watch, cloud and internet failures never block a session.</p>
           </section>
         </div>
       )}
