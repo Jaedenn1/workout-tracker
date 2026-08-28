@@ -1,0 +1,43 @@
+name: One-shot session fix v5
+
+on:
+  push:
+    paths:
+      - '.github/workflows/oneshot-session-fix-v5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Patch session state
+        run: python3 .github/scripts/run_fix_workout_session.py
+
+      - name: Install dependencies
+        run: npm install --package-lock=false
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git rm .github/workflows/oneshot-session-fix.yml .github/workflows/oneshot-session-fix-v2.yml .github/workflows/oneshot-session-fix-v3.yml .github/workflows/oneshot-session-fix-v4.yml .github/workflows/oneshot-session-fix-v5.yml .github/scripts/fix_workout_session.py .github/scripts/run_fix_workout_session.py src/components/CancelWorkoutControl.tsx
+          git add src/components/FirstWorkoutGymLogger.tsx app/gym/page.tsx app/v17.css package.json public/sw.js
+          git commit -m "Fix workout timer and cancel session state"
+          git push origin HEAD:main
