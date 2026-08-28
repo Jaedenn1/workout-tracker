@@ -31,7 +31,7 @@ type BodyweightEntry = {
   recordedAt?: string;
 };
 
-type DraftMap = Record<string, { startedAt?: string; exercises?: unknown[] }>;
+type DraftMap = Record<string, { startedAt?: string; exercises?: unknown[]; pausedAt?: string | null }>;
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -134,14 +134,16 @@ export default function Home() {
           <h2>{activeRoutine?.name ?? "Choose a routine"}</h2>
           <p>
             {currentDraft
-              ? "You have an unfinished workout ready to continue."
+              ? currentDraft.pausedAt
+                ? "Your workout is paused and saved exactly where you left it."
+                : "You have an unfinished workout ready to continue."
               : activeRoutine
                 ? `${activeRoutine.exerciseIds?.length ?? 0} planned exercises · ready when you are.`
                 : "Open Gym Mode to choose or create your next session."}
           </p>
         </div>
         <a className="v11-primary-action" href="/gym">
-          {currentDraft ? "Resume workout" : "Start workout"}
+          {currentDraft ? (currentDraft.pausedAt ? "Resume paused workout" : "Resume workout") : "Start workout"}
           <span>→</span>
         </a>
       </section>
@@ -174,23 +176,23 @@ export default function Home() {
           )}
         </article>
 
-        <article className="v11-home-card">
+        <a className="v11-home-card v11-home-card-link" href="/progress">
           <div className="v11-card-heading">
             <p className="v11-kicker">LATEST PR</p>
-            <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("workout-tracker:open-progress"))}>Progress →</button>
+            <span>Progress →</span>
           </div>
           <h3>{latestPr ?? "No PR recorded yet"}</h3>
-          <p className="v11-card-copy">Your newest strength milestone will show here automatically.</p>
-        </article>
+          <p className="v11-card-copy">Open your organized training dashboard and strength trends.</p>
+        </a>
 
-        <article className="v11-home-card">
+        <a className="v11-home-card v11-home-card-link" href="/bodyweight">
           <div className="v11-card-heading">
             <p className="v11-kicker">BODYWEIGHT</p>
-            <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("workout-tracker:open-progress"))}>Track →</button>
+            <span>Manage →</span>
           </div>
           <h3>{latestWeight == null ? "Not logged" : `${latestWeight.toFixed(1)} lb`}</h3>
-          <p className="v11-card-copy">Bodyweight and strength trends stay together in Progress.</p>
-        </article>
+          <p className="v11-card-copy">Add, edit, or delete a bodyweight entry on its dedicated screen.</p>
+        </a>
       </section>
 
       <section className="v11-quick-actions">
@@ -198,6 +200,8 @@ export default function Home() {
         <div>
           <a href="/gym">⚡ Gym Mode</a>
           <a href="/history">🕘 Workout History</a>
+          <a href="/progress">📊 Progress</a>
+          <a href="/bodyweight">⚖ Bodyweight</a>
           <a href="/data">🛡 Data & Backups</a>
         </div>
       </section>
