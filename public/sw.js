@@ -1,4 +1,4 @@
-const CACHE = "workout-tracker-v1.2.3-r2";
+const CACHE = "workout-tracker-v1.2.3-r3";
 const CORE_SHELL = ["/", "/offline", "/icon.svg"];
 const OPTIONAL_SHELL = ["/gym", "/history", "/progress", "/bodyweight", "/data", "/health", "/watch"];
 
@@ -37,61 +37,45 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    const network = fetch(request);
+    event.waitUntil(
+      network
+        .then((response) => (response.ok ? putInCache(request, response.clone()) : undefined))
+        .catch(() => undefined),
+    );
+
     event.respondWith(
-      (async () => {
-        try {
-          const response = await fetch(request);
-          if (response.ok) {
-            event.waitUntil(putInCache(request, response.clone()).catch(() => undefined));
-          }
-          return response;
-        } catch {
-          return (
-            (await caches.match(request)) ||
-            (await caches.match(url.pathname)) ||
-            (await caches.match("/offline"))
-          );
-        }
-      })(),
+      network.catch(async () =>
+        (await caches.match(request)) ||
+        (await caches.match(url.pathname)) ||
+        (await caches.match("/offline")),
+      ),
     );
     return;
   }
 
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(
-      (async () => {
-        const cached = await caches.match(request);
-        const refresh = fetch(request)
-          .then(async (response) => {
-            if (response.ok) {
-              await putInCache(request, response.clone());
-            }
-            return response;
-          })
-          .catch(() => cached);
+    const network = fetch(request);
+    event.waitUntil(
+      network
+        .then((response) => (response.ok ? putInCache(request, response.clone()) : undefined))
+        .catch(() => undefined),
+    );
 
-        if (cached) {
-          event.waitUntil(refresh.then(() => undefined).catch(() => undefined));
-          return cached;
-        }
-        return refresh;
-      })(),
+    event.respondWith(
+      caches.match(request).then((cached) => cached || network.catch(() => cached || Response.error())),
     );
     return;
   }
 
+  const network = fetch(request);
+  event.waitUntil(
+    network
+      .then((response) => (response.ok ? putInCache(request, response.clone()) : undefined))
+      .catch(() => undefined),
+  );
+
   event.respondWith(
-    (async () => {
-      const cached = await caches.match(request);
-      try {
-        const response = await fetch(request);
-        if (response.ok) {
-          event.waitUntil(putInCache(request, response.clone()).catch(() => undefined));
-        }
-        return response;
-      } catch {
-        return cached || Response.error();
-      }
-    })(),
+    network.catch(async () => (await caches.match(request)) || Response.error()),
   );
 });
