@@ -17,36 +17,8 @@ import "./v14.css";
 import "./v15.css";
 import "./v16.css";
 import "./v17.css";
+import "./v18.css";
 
-export const metadata: Metadata = {
-  title: "Workout Tracker",
-  description: "Fast personal lifting tracker",
-  manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
-  },
-  appleWebApp: {
-    capable: true,
-    title: "Workout Tracker",
-    statusBarStyle: "black-translucent",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#080808",
-};
-
-export default function RootLayout({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en">
-      <body>
-        <StorageGate>
-          {children}
-          <AppTools />
-          <InteractionLayer />
-        </StorageGate>
-      </body>
-    </html>
-  );
-}
+export const metadata: Metadata = { title: "Workout Tracker", description: "Fast personal lifting tracker", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
+export const viewport: Viewport = { themeColor: "#080808" };
+export default function RootLayout({ children }: { children: ReactNode }) { return <html lang="en"><body><StorageGate>{children}<AppTools/><InteractionLayer/></StorageGate></body></html>; }
