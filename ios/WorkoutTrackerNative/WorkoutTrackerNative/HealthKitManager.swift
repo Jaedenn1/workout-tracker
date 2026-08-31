@@ -13,6 +13,7 @@ final class HealthKitManager: ObservableObject {
     private let store = HKHealthStore()
     private let sourceIDKey = "com.jaedenn.workouttracker.sourceID"
     private let sourceNameKey = "com.jaedenn.workouttracker.name"
+    private let writtenIDsKey = "com.jaedenn.workouttracker.healthkit.writtenIDs"
 
     private var bodyMassType: HKQuantityType? {
         HKQuantityType.quantityType(forIdentifier: .bodyMass)
@@ -75,16 +76,20 @@ final class HealthKitManager: ObservableObject {
 
         var writtenWeights = 0
         var writtenWorkouts = 0
-        var skipped = 0
+        var invalidEntries = 0
+        var duplicateEntries = 0
 
         do {
             for entry in bodyweight {
                 guard let date = ISO8601Bridge.date(from: entry.recordedAt) else {
-                    skipped += 1
+                    invalidEntries += 1
                     continue
                 }
-                try await saveBodyweight(entry, at: date)
-                writtenWeights += 1
+                if try await saveBodyweight(entry, at: date) {
+                    writtenWeights += 1
+                } else {
+                    duplicateEntries += 1
+                }
             }
 
             for entry in workouts {
@@ -93,14 +98,21 @@ final class HealthKitManager: ObservableObject {
                     let end = ISO8601Bridge.date(from: entry.completedAt),
                     end > start
                 else {
-                    skipped += 1
+                    invalidEntries += 1
                     continue
                 }
-                try await saveWorkout(entry, start: start, end: end)
-                writtenWorkouts += 1
+                if try await saveWorkout(entry, start: start, end: end) {
+                    writtenWorkouts += 1
+                } else {
+                    duplicateEntries += 1
+                }
             }
 
-            lastMessage = "Saved \(writtenWorkouts) workouts and \(writtenWeights) bodyweight entries to Apple Health\(skipped > 0 ? "; skipped \(skipped) invalid entries" : "")."
+            var suffixes: [String] = []
+            if duplicateEntries > 0 { suffixes.append("skipped \(duplicateEntries) already-saved entries") }
+            if invalidEntries > 0 { suffixes.append("skipped \(invalidEntries) invalid entries") }
+            let suffix = suffixes.isEmpty ? "" : "; " + suffixes.joined(separator: ", ")
+            lastMessage = "Saved \(writtenWorkouts) workouts and \(writtenWeights) bodyweight entries to Apple Health\(suffix)."
             await refresh()
         } catch {
             lastMessage = "Apple Health write failed: \(error.localizedDescription)"
@@ -133,8 +145,13 @@ final class HealthKitManager: ObservableObject {
         )
     }
 
-    private func saveBodyweight(_ entry: BridgeBodyweight, at date: Date) async throws {
-        guard let bodyMassType else { return }
+    private func saveBodyweight(_ entry: BridgeBodyweight, at date: Date) async throws -> Bool {
+        guard let bodyMassType else { return false }
+        let localID = "bodyweight:\(entry.id)"
+        if try await alreadySaved(sampleType: bodyMassType, sourceID: entry.id, localID: localID) {
+            return false
+        }
+
         let quantity = HKQuantity(unit: HKUnit.pound(), doubleValue: entry.pounds)
         let sample = HKQuantitySample(
             type: bodyMassType,
@@ -144,9 +161,17 @@ final class HealthKitManager: ObservableObject {
             metadata: [sourceIDKey: entry.id]
         )
         try await store.save(sample)
+        rememberWritten(localID)
+        return true
     }
 
-    private func saveWorkout(_ entry: BridgeWorkout, start: Date, end: Date) async throws {
+    private func saveWorkout(_ entry: BridgeWorkout, start: Date, end: Date) async throws -> Bool {
+        let workoutType = HKObjectType.workoutType()
+        let localID = "workout:\(entry.id)"
+        if try await alreadySaved(sampleType: workoutType, sourceID: entry.id, localID: localID) {
+            return false
+        }
+
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .traditionalStrengthTraining
         configuration.locationType = .indoor
@@ -167,6 +192,50 @@ final class HealthKitManager: ObservableObject {
         try await builder.addMetadata(metadata)
         try await builder.endCollection(at: end)
         _ = try await builder.finishWorkout()
+        rememberWritten(localID)
+        return true
+    }
+
+    private func alreadySaved(sampleType: HKSampleType, sourceID: String, localID: String) async throws -> Bool {
+        if locallyWrittenIDs.contains(localID) {
+            return true
+        }
+
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: sourceIDKey,
+            allowedValues: [sourceID]
+        )
+
+        let exists: Bool = try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sampleType,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: !(samples?.isEmpty ?? true))
+            }
+            store.execute(query)
+        }
+
+        if exists {
+            rememberWritten(localID)
+        }
+        return exists
+    }
+
+    private var locallyWrittenIDs: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: writtenIDsKey) ?? [])
+    }
+
+    private func rememberWritten(_ id: String) {
+        var ids = locallyWrittenIDs
+        ids.insert(id)
+        UserDefaults.standard.set(Array(ids).sorted(), forKey: writtenIDsKey)
     }
 
     private func fetchBodyweight(limit: Int) async throws -> [HealthBodyweight] {
