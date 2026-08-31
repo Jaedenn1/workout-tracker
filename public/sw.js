@@ -1,17 +1,31 @@
-const CACHE = "workout-tracker-v1.2.3";
-const APP_SHELL = ["/", "/gym", "/history", "/progress", "/bodyweight", "/data", "/health", "/watch", "/offline", "/icon.svg"];
+const CACHE = "workout-tracker-v1.2.3-r2";
+const CORE_SHELL = ["/", "/offline", "/icon.svg"];
+const OPTIONAL_SHELL = ["/gym", "/history", "/progress", "/bodyweight", "/data", "/health", "/watch"];
+
+async function putInCache(request, response) {
+  if (!response || !response.ok) return;
+  const cache = await caches.open(CACHE);
+  await cache.put(request, response);
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(CORE_SHELL);
+      await Promise.allSettled(OPTIONAL_SHELL.map((path) => cache.add(path)));
+      await self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })(),
   );
 });
 
@@ -24,30 +38,60 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+      (async () => {
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            event.waitUntil(putInCache(request, response.clone()).catch(() => undefined));
+          }
           return response;
-        })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/offline"))),
+        } catch {
+          return (
+            (await caches.match(request)) ||
+            (await caches.match(url.pathname)) ||
+            (await caches.match("/offline"))
+          );
+        }
+      })(),
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request);
+        const refresh = fetch(request)
+          .then(async (response) => {
+            if (response.ok) {
+              await putInCache(request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => cached);
+
+        if (cached) {
+          event.waitUntil(refresh.then(() => undefined).catch(() => undefined));
+          return cached;
+        }
+        return refresh;
+      })(),
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      return cached || network;
-    }),
+    (async () => {
+      const cached = await caches.match(request);
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          event.waitUntil(putInCache(request, response.clone()).catch(() => undefined));
+        }
+        return response;
+      } catch {
+        return cached || Response.error();
+      }
+    })(),
   );
 });
