@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "public/**"
       - "package.json"
+      - "package-lock.json"
       - "tsconfig.json"
       - ".github/workflows/web.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "src/**"
       - "public/**"
       - "package.json"
+      - "package-lock.json"
       - "tsconfig.json"
       - ".github/workflows/web.yml"
 
@@ -27,8 +29,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
