@@ -1,5 +1,5 @@
-import TrainingDashboardPage from "../../src/components/TrainingDashboardPage";
+import TrainingIntelligenceDashboard from "../../src/components/TrainingIntelligenceDashboard";
 
 export default function ProgressPage() {
-  return <TrainingDashboardPage />;
+  return <TrainingIntelligenceDashboard />;
 }
