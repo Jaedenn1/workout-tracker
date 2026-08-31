@@ -8,6 +8,7 @@ final class WorkoutConnectivityStore: NSObject, ObservableObject, WCSessionDeleg
 
     private var processedActionIDs: Set<String> = []
     private var wcSession: WCSession?
+    private var lastRevision = -1
 
     #if os(iOS)
     private let liveActivity = LiveActivityManager()
@@ -26,17 +27,20 @@ final class WorkoutConnectivityStore: NSObject, ObservableObject, WCSessionDeleg
         DispatchQueue.main.async {
             self.processedActionIDs.removeAll()
             self.session = newSession
+            self.lastRevision = newSession.revision
             self.connectivityLabel = self.reachabilityLabel()
-            self.publish(actionID: nil)
+            self.publish(session: newSession, revision: newSession.revision)
             self.syncLiveActivity()
         }
     }
 
     func clearSession() {
         DispatchQueue.main.async {
+            let clearRevision = max(self.lastRevision, self.session?.revision ?? -1) + 1
             self.session = nil
+            self.lastRevision = clearRevision
             self.processedActionIDs.removeAll()
-            self.publish(actionID: nil)
+            self.publish(session: nil, revision: clearRevision, cleared: true)
             self.syncLiveActivity()
         }
     }
@@ -86,7 +90,8 @@ final class WorkoutConnectivityStore: NSObject, ObservableObject, WCSessionDeleg
             )
             guard WorkoutSessionReducer.apply(action, to: &current, processed: &self.processedActionIDs) else { return }
             self.session = current
-            self.publish(actionID: action.id)
+            self.lastRevision = current.revision
+            self.publish(session: current, revision: current.revision, action: action)
             self.syncLiveActivity()
         }
     }
@@ -95,15 +100,21 @@ final class WorkoutConnectivityStore: NSObject, ObservableObject, WCSessionDeleg
         session?.exercises.lazy.flatMap(\.sets).first(where: { $0.id == id })
     }
 
-    private func publish(actionID: String?) {
-        guard let current = session,
-              let wcSession,
+    private func publish(
+        session current: SyncedWorkoutSession?,
+        revision: Int,
+        action: WorkoutAction? = nil,
+        cleared: Bool = false
+    ) {
+        guard let wcSession,
               wcSession.activationState == .activated,
               let data = try? JSONEncoder().encode(WorkoutSyncEnvelope(
-                revision: current.revision,
+                revision: revision,
                 sender: senderName,
                 session: current,
-                actionID: actionID
+                actionID: action?.id,
+                action: action,
+                cleared: cleared
               ))
         else { return }
 
@@ -124,12 +135,47 @@ final class WorkoutConnectivityStore: NSObject, ObservableObject, WCSessionDeleg
         else { return }
 
         DispatchQueue.main.async {
-            if let actionID = envelope.actionID, self.processedActionIDs.contains(actionID), envelope.revision <= (self.session?.revision ?? -1) {
+            let currentRevision = max(self.lastRevision, self.session?.revision ?? -1)
+
+            if envelope.cleared == true {
+                guard envelope.revision >= currentRevision else { return }
+                self.session = nil
+                self.lastRevision = envelope.revision
+                self.processedActionIDs.removeAll()
+                self.connectivityLabel = self.reachabilityLabel()
+                self.syncLiveActivity()
                 return
             }
-            if let actionID = envelope.actionID { self.processedActionIDs.insert(actionID) }
-            guard envelope.revision >= (self.session?.revision ?? -1) else { return }
-            self.session = envelope.session
+
+            guard let incomingSession = envelope.session else { return }
+
+            if let action = envelope.action,
+               var current = self.session,
+               current.id == action.sessionID,
+               !self.processedActionIDs.contains(action.id),
+               envelope.revision <= current.revision {
+                if WorkoutSessionReducer.apply(action, to: &current, processed: &self.processedActionIDs) {
+                    self.session = current
+                    self.lastRevision = current.revision
+                    self.connectivityLabel = self.reachabilityLabel()
+                    self.publish(session: current, revision: current.revision)
+                    self.syncLiveActivity()
+                }
+                return
+            }
+
+            if let actionID = envelope.actionID,
+               self.processedActionIDs.contains(actionID),
+               envelope.revision <= currentRevision {
+                return
+            }
+            if let actionID = envelope.actionID {
+                self.processedActionIDs.insert(actionID)
+            }
+
+            guard envelope.revision >= currentRevision else { return }
+            self.session = incomingSession
+            self.lastRevision = envelope.revision
             self.connectivityLabel = self.reachabilityLabel()
             self.syncLiveActivity()
         }
