@@ -60,8 +60,26 @@ struct WorkoutAction: Codable, Identifiable, Equatable, Hashable {
 struct WorkoutSyncEnvelope: Codable, Equatable {
     let revision: Int
     let sender: String
-    let session: SyncedWorkoutSession
+    let session: SyncedWorkoutSession?
     let actionID: String?
+    let action: WorkoutAction?
+    let cleared: Bool?
+
+    init(
+        revision: Int,
+        sender: String,
+        session: SyncedWorkoutSession?,
+        actionID: String? = nil,
+        action: WorkoutAction? = nil,
+        cleared: Bool = false
+    ) {
+        self.revision = revision
+        self.sender = sender
+        self.session = session
+        self.actionID = actionID
+        self.action = action
+        self.cleared = cleared ? true : nil
+    }
 }
 
 enum SyncISO8601 {
