@@ -20,6 +20,12 @@ function kindIcon(kind: TrainingKind) {
   return "○";
 }
 
+function sessionHref(item: WeeklyPlanDay) {
+  if (item.kind === "lift") return "/gym";
+  if (item.kind === "rest") return null;
+  return `/session?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}`;
+}
+
 export default function WeeklyPlan() {
   const [plan, setPlan] = useState<WeeklyPlanDay[]>(defaultWeeklyPlan);
   const [hydrated, setHydrated] = useState(false);
@@ -60,9 +66,9 @@ export default function WeeklyPlan() {
     <main className="wp-shell">
       <header className="wp-topbar">
         <div>
-          <p className="ti-eyebrow">WEEKLY PLAN · V1.5</p>
+          <p className="ti-eyebrow">WEEKLY PLAN · V1.6</p>
           <h1>Hybrid Week</h1>
-          <p>Build the week once, then open the app and know exactly what today is for.</p>
+          <p>Plan the week, then launch the correct logger straight from each day.</p>
         </div>
         <a className="ti-secondary" href="/">Today</a>
       </header>
@@ -75,8 +81,9 @@ export default function WeeklyPlan() {
       </section>
 
       <section className="wp-list" aria-busy={!hydrated}>
-        {plan.map((item, index) => (
-          <article className={`wp-day ${index === today ? "is-today" : ""}`} key={item.day}>
+        {plan.map((item, index) => {
+          const href = sessionHref(item);
+          return <article className={`wp-day ${index === today ? "is-today" : ""}`} key={item.day}>
             <div className="wp-day-head">
               <div className="wp-day-label">
                 <span>{item.shortDay}</span>
@@ -102,14 +109,15 @@ export default function WeeklyPlan() {
               <input value={item.detail} onChange={(event) => update(index, { detail: event.target.value })} placeholder="Short goal or focus" />
             </label>
 
-            {item.kind === "lift" && <a className="wp-action" href="/gym">Open gym logger →</a>}
-          </article>
-        ))}
+            {href && <a className="wp-action" href={href}>{item.kind === "lift" ? "Open gym logger" : "Track this session"} →</a>}
+            {item.kind === "rest" && <span className="wp-rest-label">Recovery day · no logger needed</span>}
+          </article>;
+        })}
       </section>
 
       <footer className="wp-footer">
         <button type="button" onClick={reset}>Reset starter week</button>
-        <a href="/progress">Training intelligence →</a>
+        <a href="/history">All training history →</a>
       </footer>
     </main>
   );
