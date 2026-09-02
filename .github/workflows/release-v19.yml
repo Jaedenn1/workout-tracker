@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Apply v1.9 Live Training OS patch
+      - name: Apply verified v1.9 Live Training OS patch
         run: python scripts/apply_v19.py
       - name: Install locked dependencies
         run: npm ci
@@ -45,6 +45,6 @@ jobs:
           git config user.name "Jaedenn1"
           git config user.email "Jaedennm@gmail.com"
           git add app src public package.json package-lock.json
-          git rm -f scripts/apply_v19.py .github/workflows/release-v19.yml
+          git rm -f scripts/apply_v19.py scripts/v19.part1 scripts/v19.part2 scripts/v19.part3 scripts/v19.part4 .github/workflows/release-v19.yml
           git commit -m "Release v1.9 Live Training OS"
           git push
