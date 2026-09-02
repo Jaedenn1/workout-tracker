@@ -1,0 +1,26 @@
+name: Package v1.9.3 deploy source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/package-v193-deploy.yml"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify v1.9.3 source
+        run: |
+          test "$(node -p "require('./package.json').version")" = "1.9.3"
+          grep -q 'workout-tracker-v1.9.3-gym-ui-cleanup' public/sw.js
+          grep -q 'v26.css' app/layout.tsx
+      - name: Build deployment source archive
+        run: |
+          zip -qr workout-tracker-v193-source.zip app src public scripts/live-reliability.test.cjs package.json package-lock.json tsconfig.json next-env.d.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workout-tracker-v193-source
+          path: workout-tracker-v193-source.zip
+          retention-days: 1
