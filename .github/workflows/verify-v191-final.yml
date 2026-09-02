@@ -58,3 +58,4 @@ jobs:
           git rm -rf scripts/v191-final .github/workflows/verify-v191-final.yml
           git commit -m "Release v1.9.1 Live Training reliability"
           git push origin HEAD:release/v1.9.1-reliability-final
+# rerun with regression file present
