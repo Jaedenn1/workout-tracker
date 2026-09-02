@@ -24,7 +24,8 @@ import "./v21.css";
 import "./v22.css";
 import "./v23.css";
 import "./v24.css";
+import "./v25.css";
 
-export const metadata: Metadata = { title: "Workout Tracker", description: "Reliable live hybrid training OS with adaptive intelligence, reload-safe execution, fatigue-aware coaching, and workout persistence", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
+export const metadata: Metadata = { title: "Workout Tracker", description: "Clean live hybrid training OS with adaptive intelligence, reliable workout execution, and streamlined training navigation", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
 export const viewport: Viewport = { themeColor: "#080808" };
 export default function RootLayout({ children }: { children: ReactNode }) { return <html lang="en"><body><StorageGate>{children}<AppTools/><InteractionLayer/></StorageGate></body></html>; }
