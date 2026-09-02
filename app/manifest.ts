@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Workout Tracker",
     short_name: "Workout",
-    description: "Fast personal lifting tracker",
+    description: "Reliable live hybrid training OS with adaptive coaching and workout persistence",
     start_url: "/",
     display: "standalone",
     background_color: "#080808",

@@ -15,6 +15,8 @@ export type HybridSession = {
   distanceKm?: number | null;
   elevationFeet?: number | null;
   laps?: number | null;
+  poolMeters?: number | null;
+  rounds?: number | null;
 };
 
 function finiteNonNegative(value: unknown) {
@@ -43,6 +45,8 @@ function normalizeHybridSession(value: unknown): HybridSession | null {
     distanceKm: finiteNonNegative(item.distanceKm),
     elevationFeet: finiteNonNegative(item.elevationFeet),
     laps: finiteNonNegative(item.laps),
+    poolMeters: finiteNonNegative(item.poolMeters),
+    rounds: finiteNonNegative(item.rounds),
   };
 }
 

@@ -34,6 +34,56 @@ export type LiveExercise = {
   sets: LiveSet[];
 };
 
+export type IntervalPaceSignal = { tone: LiveTimelineTone; detail: string };
+
+export function clampLiveDuration(value: unknown, fallback = 45) {
+  const parsed = Number(value);
+  const safe = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(5, Math.min(300, Math.round(safe)));
+}
+
+export function clampLiveRpe(value: unknown, fallback = 7) {
+  const parsed = Number(value);
+  const safe = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(1, Math.min(10, Math.round(safe * 2) / 2));
+}
+
+export function validLiveSet(set: LiveSet) {
+  return Boolean(
+    set.done &&
+    set.weight != null && Number.isFinite(Number(set.weight)) && Number(set.weight) >= 0 &&
+    set.reps != null && Number.isFinite(Number(set.reps)) && Number(set.reps) > 0 &&
+    (set.rir == null || (Number.isFinite(Number(set.rir)) && Number(set.rir) >= 0 && Number(set.rir) <= 6))
+  );
+}
+
+export function completedLiveSetCount(exercises: LiveExercise[]) {
+  return exercises.reduce((sum, exercise) => sum + exercise.sets.filter(validLiveSet).length, 0);
+}
+
+export function plannedLiveSetCount(exercises: LiveExercise[]) {
+  return exercises.reduce((sum, exercise) => {
+    const completed = exercise.sets.filter(validLiveSet).length;
+    return sum + (exercise.skipped ? completed : exercise.sets.length);
+  }, 0);
+}
+
+export function intervalPaceSignal(splitSeconds: number, priorSplits: number[]): IntervalPaceSignal {
+  const split = Number(splitSeconds);
+  const prior = priorSplits.filter((value) => Number.isFinite(value) && value > 0);
+  if (!Number.isFinite(split) || split <= 0 || !prior.length) {
+    return { tone: "neutral", detail: "Interval recorded." };
+  }
+  const baseline = prior.reduce((sum, value) => sum + value, 0) / prior.length;
+  if (split < baseline * 0.96) {
+    return { tone: "warn", detail: "This rep was >4% faster than your prior-rep average. Keep the next rep controlled enough to preserve quality." };
+  }
+  if (split > baseline * 1.06) {
+    return { tone: "warn", detail: "This rep slowed >6% versus your prior-rep average. Consider ending the interval block if quality is dropping." };
+  }
+  return { tone: "neutral", detail: "Split stayed close to the current interval average." };
+}
+
 export function uid(prefix: string) {
   const token = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -52,8 +102,8 @@ export function formatClock(totalSeconds: number) {
 }
 
 export function buildLivePrescription(plan: WeeklyPlanDay, signal: "push" | "maintain" | "reduce" | "recover", advanced: AdvancedIntelligenceSnapshot): LivePrescription {
-  const originalDuration = Math.max(5, Number(plan.targetDurationMinutes || (plan.kind === "conditioning" ? 20 : 45)));
-  const originalRpe = Math.max(1, Math.min(10, Number(plan.targetRpe || (plan.kind === "pool" || plan.kind === "recovery" ? 4 : 7))));
+  const originalDuration = clampLiveDuration(plan.targetDurationMinutes, plan.kind === "conditioning" ? 20 : 45);
+  const originalRpe = clampLiveRpe(plan.targetRpe, plan.kind === "pool" || plan.kind === "recovery" ? 4 : 7);
   let durationScale = 1;
   let rpeDelta = 0;
   let focus = plan.detail || "Execute the planned session cleanly.";
@@ -127,14 +177,14 @@ export function makeLiveExercise(definition: ExerciseDefinition, history: Workou
 
 export function completedPerformance(exercise: LiveExercise): PerformanceSet[] {
   return exercise.sets
-    .filter((set) => set.done && set.weight != null && set.reps != null && set.reps > 0)
+    .filter(validLiveSet)
     .map((set) => ({ weight: Number(set.weight), reps: Number(set.reps), rir: set.rir }));
 }
 
 export function nextSetRecommendation(exercise: LiveExercise, targetRpe: number) {
   const completed = completedPerformance(exercise);
   const nextIndex = exercise.sets.findIndex((set) => !set.done);
-  if (nextIndex < 0) return { label: "Exercise complete", target: "Move on or finish the session.", restSeconds: 0 };
+  if (nextIndex < 0) return { label: "Exercise complete", target: "Move on or finish the session.", restSeconds: 0, weight: null };
   const previous = completed.at(-1);
   const plannedWeight = Number(exercise.sets[nextIndex]?.weight ?? exercise.fallbackWeight);
   const targetRir = Math.max(0, Math.min(4, Math.round(10 - targetRpe)));
@@ -150,7 +200,7 @@ export function nextSetRecommendation(exercise: LiveExercise, targetRpe: number)
     weight = previous.weight;
   }
   const restSeconds = smartRestSeconds(exercise, previous?.rir ?? null);
-  return { label: `Next set · ${weight} lb`, target: cue, restSeconds };
+  return { label: `Next set · ${weight} lb`, target: cue, restSeconds, weight };
 }
 
 export function smartRestSeconds(exercise: LiveExercise, rir: number | null) {

@@ -42,7 +42,7 @@ export default function HybridHistory() {
 
   return (
     <section className="hh-shell">
-      <div className="ti-section-head"><div><p className="ti-eyebrow">HYBRID HISTORY · V1.6</p><h2>Cardio & recovery sessions</h2><span>Runs, conditioning, pool, and recovery live here beside your lifting journal.</span></div><a className="ti-secondary" href="/session">Log session</a></div>
+      <div className="ti-section-head"><div><p className="ti-eyebrow">HYBRID HISTORY · V1.9.1</p><h2>Cardio & recovery sessions</h2><span>Runs, conditioning, pool, and recovery live here beside your lifting journal.</span></div><a className="ti-secondary" href="/session">Log session</a></div>
       <div className="hh-summary"><div><span>Sessions</span><strong>{filtered.length}</strong></div><div><span>Time</span><strong>{totalMinutes}<small> min</small></strong></div><div><span>Running</span><strong>{runKm.toFixed(1)}<small> km</small></strong></div></div>
       <div className="hh-filters">
         {(["all", "run", "conditioning", "pool", "recovery"] as const).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item === "all" ? "All" : kindLabel(item)}</button>)}
@@ -51,7 +51,7 @@ export default function HybridHistory() {
       <div className="hh-list">
         {filtered.map((item) => {
           const pace = item.kind === "run" ? pacePerKm(item.distanceKm, item.durationMinutes) : null;
-          return <article key={item.id} className="hh-item"><div><span>{kindLabel(item.kind)}</span><strong>{item.title}</strong><small>{formatDate(item.completedAt)}</small></div><div className="hh-metrics"><strong>{item.durationMinutes} min</strong>{item.distanceKm ? <span>{item.distanceKm.toFixed(1)} km{pace ? ` · ${pace}` : ""}</span> : null}{item.elevationFeet ? <span>{Math.round(item.elevationFeet)} ft</span> : null}{item.laps ? <span>{item.laps} laps</span> : null}<span>RPE {item.effort}/10</span></div>{item.notes && <p>{item.notes}</p>}</article>;
+          return <article key={item.id} className="hh-item"><div><span>{kindLabel(item.kind)}</span><strong>{item.title}</strong><small>{formatDate(item.completedAt)}</small></div><div className="hh-metrics"><strong>{item.durationMinutes} min</strong>{item.distanceKm ? <span>{item.distanceKm.toFixed(1)} km{pace ? ` · ${pace}` : ""}</span> : null}{item.elevationFeet ? <span>{Math.round(item.elevationFeet)} ft</span> : null}{item.laps ? <span>{item.laps} laps</span> : null}{item.poolMeters ? <span>{Math.round(item.poolMeters)} m</span> : null}{item.rounds ? <span>{Math.round(item.rounds)} rounds</span> : null}<span>RPE {item.effort}/10</span></div>{item.notes && <p>{item.notes}</p>}</article>;
         })}
         {!filtered.length && <p className="ti-empty">No hybrid sessions logged yet.</p>}
       </div>

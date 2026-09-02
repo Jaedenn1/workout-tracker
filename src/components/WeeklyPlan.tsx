@@ -59,7 +59,7 @@ export default function WeeklyPlan() {
   return (
     <main className="wp-shell">
       <header className="wp-topbar">
-        <div><p className="ti-eyebrow">WEEKLY PLAN · V1.9</p><h1>Hybrid Week</h1><p>Give each session a target dose. The coach compares the plan against what you actually complete.</p></div>
+        <div><p className="ti-eyebrow">WEEKLY PLAN · V1.9.1</p><h1>Hybrid Week</h1><p>Give each session a target dose. The coach compares the plan against what you actually complete.</p></div>
         <div className="ac-top-actions"><a className="ti-secondary" href="/live">Live Training OS</a><a className="ti-secondary" href="/coach">Adaptive coach</a><a className="ti-secondary" href="/">Today</a></div>
       </header>
 

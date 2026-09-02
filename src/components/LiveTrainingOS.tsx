@@ -13,13 +13,18 @@ import { readHybridSessions, saveHybridSession, type HybridSession, type HybridS
 import {
   LIVE_SESSION_KEY,
   buildLivePrescription,
+  clampLiveDuration,
+  clampLiveRpe,
+  completedLiveSetCount,
   completedPerformance,
   formatClock,
   generatedSessionNote,
   historicalBestE1rm,
+  intervalPaceSignal,
   liveDosePercent,
   makeLiveExercise,
   nextSetRecommendation,
+  plannedLiveSetCount,
   recoveryEstimate,
   sessionQualityScore,
   sessionStatus,
@@ -30,6 +35,7 @@ import {
   type LiveExercise,
   type LiveOverrideMode,
   type LiveTimelineEvent,
+  type LiveTimelineTone,
 } from "../lib/liveTraining";
 import { estimateOneRepMax } from "../lib/progression";
 import {
@@ -60,6 +66,7 @@ type FinishedSummary = { quality: number; note: string; recovery: string; prs: s
 type WakeSentinel = { release(): Promise<void> };
 
 type LiveDraft = {
+  sessionId: string;
   startedAt: string;
   pausedAt: string | null;
   totalPausedSeconds: number;
@@ -67,6 +74,8 @@ type LiveDraft = {
   title: string;
   routineId: string | null;
   overrideMode: LiveOverrideMode;
+  originalDuration: number;
+  originalRpe: number;
   targetDuration: number;
   targetRpe: number;
   exercises: LiveExercise[];
@@ -84,7 +93,10 @@ type LiveDraft = {
   timeline: LiveTimelineEvent[];
   branch: BranchMode;
   discomfort: LiveDiscomfort | null;
+  discomfortAdjusted: boolean;
   readinessDrift: ReadinessDrift;
+  restRemaining: number;
+  restSavedAt: string;
 };
 
 const runSubtypes = ["Easy aerobic", "Tempo", "Intervals", "Long run", "Recovery run"];
@@ -139,11 +151,113 @@ function paceLabel(distanceKm: number, elapsed: number) {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}/km`;
 }
 function average(values: number[]) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; }
-function activeDraft(value: LiveDraft | null) {
-  if (!value?.startedAt) return false;
-  const started = new Date(value.startedAt).getTime();
+function defaultTargets(kind: TrainingKind, planToday: WeeklyPlanDay) {
+  if (kind === planToday.kind) {
+    return {
+      duration: clampLiveDuration(planToday.targetDurationMinutes, kind === "conditioning" ? 20 : 45),
+      rpe: clampLiveRpe(planToday.targetRpe, kind === "pool" || kind === "recovery" ? 4 : 7),
+    };
+  }
+  const duration = kind === "lift" ? 55 : kind === "run" ? 35 : kind === "conditioning" ? 20 : kind === "pool" || kind === "recovery" ? 30 : 30;
+  const rpe = kind === "lift" ? 7 : kind === "run" ? 5 : kind === "conditioning" ? 8 : kind === "pool" ? 4 : kind === "recovery" ? 3 : 2;
+  return { duration, rpe };
+}
+function timelineTone(value: unknown): LiveTimelineTone {
+  return value === "good" || value === "warn" || value === "stop" ? value : "neutral";
+}
+function sanitizeTimeline(value: unknown): LiveTimelineEvent[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const item = entry as Partial<LiveTimelineEvent>;
+    if (typeof item.label !== "string" || typeof item.detail !== "string") return [];
+    return [{
+      id: typeof item.id === "string" && item.id ? item.id : uid("event"),
+      elapsedSeconds: Math.max(0, Math.floor(Number(item.elapsedSeconds) || 0)),
+      label: item.label.slice(0, 120),
+      detail: item.detail.slice(0, 500),
+      tone: timelineTone(item.tone),
+    }];
+  }).slice(-250);
+}
+function sanitizeExercises(value: unknown): LiveExercise[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const item = entry as Partial<LiveExercise>;
+    if (typeof item.id !== "string" || typeof item.name !== "string" || !Array.isArray(item.sets)) return [];
+    const definition = definitionFor(item.id, []);
+    const muscle = (typeof item.muscle === "string" ? item.muscle : definition?.muscle) as LiveExercise["muscle"] | undefined;
+    if (!muscle) return [];
+    const repMin = Math.max(1, Math.round(Number(item.repMin) || definition?.repMin || 1));
+    const repMax = Math.max(repMin, Math.round(Number(item.repMax) || definition?.repMax || repMin));
+    const increment = Math.max(0, Number(item.increment) || definition?.increment || 0);
+    const fallbackWeight = Math.max(0, Number(item.fallbackWeight) || definition?.fallbackWeight || 0);
+    const sets = item.sets.flatMap((setValue) => {
+      if (!setValue || typeof setValue !== "object" || Array.isArray(setValue)) return [];
+      const set = setValue as Partial<LiveExercise["sets"][number]>;
+      const weight = set.weight == null || !Number.isFinite(Number(set.weight)) ? null : Math.max(0, Number(set.weight));
+      const reps = set.reps == null || !Number.isFinite(Number(set.reps)) ? null : Math.max(0, Math.round(Number(set.reps)));
+      const rir = set.rir == null || !Number.isFinite(Number(set.rir)) ? null : Math.max(0, Math.min(6, Number(set.rir)));
+      const done = Boolean(set.done && weight != null && reps != null && reps > 0);
+      return [{ id: typeof set.id === "string" && set.id ? set.id : uid(`${item.id}-set`), weight, reps, rir, done }];
+    }).slice(0, 20);
+    return [{ id: item.id, name: item.name, muscle, repMin, repMax, increment, fallbackWeight, skipped: Boolean(item.skipped), sets }];
+  }).slice(0, 30);
+}
+function sanitizeDraft(value: unknown, fallbackKind: TrainingKind, fallbackTitle: string, fallbackRoutine: string | null, fallbackDuration: number, fallbackRpe: number): LiveDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Partial<LiveDraft>;
+  if (typeof item.startedAt !== "string") return null;
+  const started = new Date(item.startedAt).getTime();
   const age = Date.now() - started;
-  return Number.isFinite(started) && age >= 0 && age <= 8 * 60 * 60 * 1000;
+  if (!Number.isFinite(started) || age < 0 || age > 12 * 60 * 60 * 1000) return null;
+  const kind = validKind(typeof item.kind === "string" ? item.kind : null) ?? fallbackKind;
+  const pausedAt = typeof item.pausedAt === "string" && Number.isFinite(new Date(item.pausedAt).getTime()) ? item.pausedAt : null;
+  const timeline = sanitizeTimeline(item.timeline);
+  const branch: BranchMode = item.branch === "reduced accessories" || item.branch === "recovery finish" ? item.branch : "normal";
+  const discomfort: LiveDiscomfort | null = item.discomfort === "joint" || item.discomfort === "muscle" || item.discomfort === "cramp" || item.discomfort === "technique" || item.discomfort === "other" ? item.discomfort : null;
+  const readinessDrift: ReadinessDrift = item.readinessDrift === "better" || item.readinessDrift === "worse" ? item.readinessDrift : "same";
+  const overrideMode: LiveOverrideMode = item.overrideMode === "original" || item.overrideMode === "custom" ? item.overrideMode : "coach";
+  const restSavedAt = typeof item.restSavedAt === "string" && Number.isFinite(new Date(item.restSavedAt).getTime()) ? item.restSavedAt : new Date().toISOString();
+  let restRemaining = Math.max(0, Math.min(900, Math.round(Number(item.restRemaining) || 0)));
+  if (!pausedAt && restRemaining > 0) {
+    const wallElapsed = Math.max(0, Math.floor((Date.now() - new Date(restSavedAt).getTime()) / 1000));
+    restRemaining = Math.max(0, restRemaining - wallElapsed);
+  }
+  return {
+    sessionId: typeof item.sessionId === "string" && item.sessionId ? item.sessionId : uid("live"),
+    startedAt: item.startedAt,
+    pausedAt,
+    totalPausedSeconds: Math.max(0, Math.floor(Number(item.totalPausedSeconds) || 0)),
+    kind,
+    title: typeof item.title === "string" && item.title.trim() ? item.title.trim().slice(0, 120) : fallbackTitle,
+    routineId: typeof item.routineId === "string" ? item.routineId : fallbackRoutine,
+    overrideMode,
+    originalDuration: clampLiveDuration(item.originalDuration, fallbackDuration),
+    originalRpe: clampLiveRpe(item.originalRpe, fallbackRpe),
+    targetDuration: clampLiveDuration(item.targetDuration, fallbackDuration),
+    targetRpe: clampLiveRpe(item.targetRpe, fallbackRpe),
+    exercises: sanitizeExercises(item.exercises),
+    effort: clampLiveRpe(item.effort, fallbackRpe),
+    distanceKm: Math.max(0, Number(item.distanceKm) || 0),
+    elevationFeet: Math.max(0, Number(item.elevationFeet) || 0),
+    laps: Math.max(0, Math.round(Number(item.laps) || 0)),
+    poolMeters: Math.max(0, Number(item.poolMeters) || 0),
+    rounds: Math.max(0, Math.round(Number(item.rounds) || 0)),
+    subtype: typeof item.subtype === "string" && item.subtype.trim() ? item.subtype.trim().slice(0, 80) : defaultSubtype(kind, fallbackTitle),
+    intervalTarget: Math.max(1, Math.min(30, Math.round(Number(item.intervalTarget) || 6))),
+    intervalDistance: Math.max(50, Math.min(5000, Math.round(Number(item.intervalDistance) || 400))),
+    intervalSplits: Array.isArray(item.intervalSplits) ? item.intervalSplits.map(Number).filter((value) => Number.isFinite(value) && value > 0).slice(-50) : [],
+    recoveryModalities: Array.isArray(item.recoveryModalities) ? item.recoveryModalities.filter((value): value is string => typeof value === "string" && recoveryOptions.includes(value)).slice(0, recoveryOptions.length) : [],
+    timeline,
+    branch,
+    discomfort,
+    discomfortAdjusted: Boolean(item.discomfortAdjusted),
+    readinessDrift,
+    restRemaining,
+    restSavedAt,
+  };
 }
 
 export default function LiveTrainingOS() {
@@ -159,9 +273,12 @@ export default function LiveTrainingOS() {
   const [title, setTitle] = useState("Live training");
   const [routineId, setRoutineId] = useState<string | null>("legs");
   const [overrideMode, setOverrideMode] = useState<LiveOverrideMode>("coach");
+  const [originalDuration, setOriginalDuration] = useState(45);
+  const [originalRpe, setOriginalRpe] = useState(7);
   const [targetDuration, setTargetDuration] = useState(45);
   const [targetRpe, setTargetRpe] = useState(7);
   const [exercises, setExercises] = useState<LiveExercise[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [pausedAt, setPausedAt] = useState<string | null>(null);
   const [totalPausedSeconds, setTotalPausedSeconds] = useState(0);
@@ -170,6 +287,7 @@ export default function LiveTrainingOS() {
   const [timeline, setTimeline] = useState<LiveTimelineEvent[]>([]);
   const [branch, setBranch] = useState<BranchMode>("normal");
   const [discomfort, setDiscomfort] = useState<LiveDiscomfort | null>(null);
+  const [discomfortAdjusted, setDiscomfortAdjusted] = useState(false);
   const [readinessDrift, setReadinessDrift] = useState<ReadinessDrift>("same");
   const [effort, setEffort] = useState(6);
   const [distanceKm, setDistanceKm] = useState(0);
@@ -185,10 +303,15 @@ export default function LiveTrainingOS() {
   const [recoveryModalities, setRecoveryModalities] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [finished, setFinished] = useState<FinishedSummary | null>(null);
+  const [discardArmed, setDiscardArmed] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const targetReachedRef = useRef(false);
   const overTargetRef = useRef(false);
   const wakeLockRef = useRef<WakeSentinel | null>(null);
+  const finishingRef = useRef(false);
+  const branchRef = useRef<BranchMode>("normal");
+  const readinessDriftRef = useRef<ReadinessDrift>("same");
+  const discomfortAdjustedRef = useRef(false);
 
   const todayIndex = todayPlanIndex();
   const basePlan = plan[todayIndex] ?? defaultWeeklyPlan[todayIndex];
@@ -197,9 +320,9 @@ export default function LiveTrainingOS() {
     kind,
     title: title || basePlan.title,
     routineId: kind === "lift" ? routineId : null,
-    targetDurationMinutes: basePlan.kind === kind ? basePlan.targetDurationMinutes : targetDuration,
-    targetRpe: basePlan.kind === kind ? basePlan.targetRpe : targetRpe,
-  }), [basePlan, kind, title, routineId, targetDuration, targetRpe]);
+    targetDurationMinutes: originalDuration,
+    targetRpe: originalRpe,
+  }), [basePlan, kind, title, routineId, originalDuration, originalRpe]);
 
   const adaptive = useMemo(() => buildAdaptiveWeek(history, hybrid, plan, readiness), [history, hybrid, plan, readiness]);
   const advanced = useMemo(() => buildAdvancedIntelligence(history, hybrid, readiness, plan, adaptive.days, routines, feedback), [history, hybrid, readiness, plan, adaptive.days, routines, feedback]);
@@ -222,23 +345,27 @@ export default function LiveTrainingOS() {
     const chosenTitle = params.get("title")?.trim() || (chosenKind === planToday.kind ? planToday.title : chosenKind === "lift" ? "Strength session" : chosenKind);
     const queryRoutine = params.get("routine")?.trim();
     const storedRoutine = localStorage.getItem(ACTIVE_ROUTINE_KEY);
-    const chosenRoutine = chosenKind === "lift" ? queryRoutine || (chosenKind === planToday.kind ? planToday.routineId : null) || storedRoutine || nextRoutines[0]?.id || "legs" : null;
+    const requestedRoutine = queryRoutine || (chosenKind === planToday.kind ? planToday.routineId : null) || storedRoutine || nextRoutines[0]?.id || "legs";
+    const chosenRoutine = chosenKind === "lift" ? (nextRoutines.some((routine) => routine.id === requestedRoutine) ? requestedRoutine : nextRoutines[0]?.id || "legs") : null;
+    const fallbackTargets = defaultTargets(chosenKind, planToday);
 
     setHistory(nextHistory); setHybrid(nextHybrid); setReadiness(nextReadiness); setPlan(nextPlan); setRoutines(nextRoutines); setCustomExercises(nextCustom); setFeedback(nextFeedback);
     setKind(chosenKind); setTitle(chosenTitle); setRoutineId(chosenRoutine); setSubtype(defaultSubtype(chosenKind, chosenTitle));
 
-    let draft: LiveDraft | null = null;
-    try { draft = JSON.parse(localStorage.getItem(LIVE_SESSION_KEY) ?? "null") as LiveDraft | null; } catch { draft = null; }
-    if (activeDraft(draft)) {
-      setStartedAt(draft!.startedAt); setPausedAt(draft!.pausedAt); setTotalPausedSeconds(Number(draft!.totalPausedSeconds || 0));
-      setKind(draft!.kind); setTitle(draft!.title); setRoutineId(draft!.routineId); setOverrideMode(draft!.overrideMode); setTargetDuration(draft!.targetDuration); setTargetRpe(draft!.targetRpe);
-      setExercises(Array.isArray(draft!.exercises) ? draft!.exercises : []); setEffort(draft!.effort); setDistanceKm(draft!.distanceKm); setElevationFeet(draft!.elevationFeet); setLaps(draft!.laps); setPoolMeters(draft!.poolMeters); setRounds(draft!.rounds);
-      setSubtype(draft!.subtype); setIntervalTarget(draft!.intervalTarget); setIntervalDistance(draft!.intervalDistance); setIntervalSplits(draft!.intervalSplits ?? []); setRecoveryModalities(draft!.recoveryModalities ?? []); setTimeline(draft!.timeline ?? []); setBranch(draft!.branch ?? "normal"); setDiscomfort(draft!.discomfort ?? null); setReadinessDrift(draft!.readinessDrift ?? "same");
+    let rawDraft: unknown = null;
+    try { rawDraft = JSON.parse(localStorage.getItem(LIVE_SESSION_KEY) ?? "null"); } catch { rawDraft = null; }
+    const draft = sanitizeDraft(rawDraft, chosenKind, chosenTitle, chosenRoutine, fallbackTargets.duration, fallbackTargets.rpe);
+    if (draft) {
+      const safeRoutine = draft.kind === "lift" && draft.routineId && nextRoutines.some((routine) => routine.id === draft.routineId) ? draft.routineId : draft.kind === "lift" ? nextRoutines[0]?.id || "legs" : null;
+      setSessionId(draft.sessionId); setStartedAt(draft.startedAt); setPausedAt(draft.pausedAt); setTotalPausedSeconds(draft.totalPausedSeconds);
+      setKind(draft.kind); setTitle(draft.title); setRoutineId(safeRoutine); setOverrideMode(draft.overrideMode); setOriginalDuration(draft.originalDuration); setOriginalRpe(draft.originalRpe); setTargetDuration(draft.targetDuration); setTargetRpe(draft.targetRpe);
+      setExercises(draft.exercises); setEffort(draft.effort); setDistanceKm(draft.distanceKm); setElevationFeet(draft.elevationFeet); setLaps(draft.laps); setPoolMeters(draft.poolMeters); setRounds(draft.rounds); setRestRemaining(draft.restRemaining);
+      setSubtype(draft.subtype); setIntervalTarget(draft.intervalTarget); setIntervalDistance(draft.intervalDistance); setIntervalSplits(draft.intervalSplits); setRecoveryModalities(draft.recoveryModalities); setTimeline(draft.timeline); setBranch(draft.branch); setDiscomfort(draft.discomfort); setDiscomfortAdjusted(draft.discomfortAdjusted); setReadinessDrift(draft.readinessDrift);
+      branchRef.current = draft.branch; readinessDriftRef.current = draft.readinessDrift; discomfortAdjustedRef.current = draft.discomfortAdjusted;
+      targetReachedRef.current = draft.timeline.some((event) => event.label === "Productive dose reached"); overTargetRef.current = draft.timeline.some((event) => event.label === "Dose above target");
       setNotice("Resumed your saved live session.");
     } else {
-      const originalDuration = Number(planToday.targetDurationMinutes || (chosenKind === "conditioning" ? 20 : 45));
-      const originalRpe = Number(planToday.targetRpe || (chosenKind === "pool" || chosenKind === "recovery" ? 4 : 7));
-      setTargetDuration(originalDuration); setTargetRpe(originalRpe); setEffort(originalRpe);
+      setOriginalDuration(fallbackTargets.duration); setOriginalRpe(fallbackTargets.rpe); setTargetDuration(fallbackTargets.duration); setTargetRpe(fallbackTargets.rpe); setEffort(fallbackTargets.rpe);
       localStorage.removeItem(LIVE_SESSION_KEY);
     }
     setHydrated(true);
@@ -265,10 +392,10 @@ export default function LiveTrainingOS() {
   }, [startedAt, pausedAt, restRemaining]);
 
   useEffect(() => {
-    if (!hydrated || !startedAt || finished) return;
-    const draft: LiveDraft = { startedAt, pausedAt, totalPausedSeconds, kind, title, routineId, overrideMode, targetDuration, targetRpe, exercises, effort, distanceKm, elevationFeet, laps, poolMeters, rounds, subtype, intervalTarget, intervalDistance, intervalSplits, recoveryModalities, timeline, branch, discomfort, readinessDrift };
+    if (!hydrated || !startedAt || !sessionId || finished) return;
+    const draft: LiveDraft = { sessionId, startedAt, pausedAt, totalPausedSeconds, kind, title, routineId, overrideMode, originalDuration, originalRpe, targetDuration, targetRpe, exercises, effort, distanceKm, elevationFeet, laps, poolMeters, rounds, subtype, intervalTarget, intervalDistance, intervalSplits, recoveryModalities, timeline, branch, discomfort, discomfortAdjusted, readinessDrift, restRemaining, restSavedAt: new Date().toISOString() };
     localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(draft));
-  }, [hydrated, startedAt, pausedAt, totalPausedSeconds, kind, title, routineId, overrideMode, targetDuration, targetRpe, exercises, effort, distanceKm, elevationFeet, laps, poolMeters, rounds, subtype, intervalTarget, intervalDistance, intervalSplits, recoveryModalities, timeline, branch, discomfort, readinessDrift, finished]);
+  }, [hydrated, sessionId, startedAt, pausedAt, totalPausedSeconds, kind, title, routineId, overrideMode, originalDuration, originalRpe, targetDuration, targetRpe, exercises, effort, distanceKm, elevationFeet, laps, poolMeters, rounds, subtype, intervalTarget, intervalDistance, intervalSplits, recoveryModalities, timeline, branch, discomfort, discomfortAdjusted, readinessDrift, restRemaining, finished]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -278,17 +405,17 @@ export default function LiveTrainingOS() {
       if (lock) try { await lock.release(); } catch { /* best effort */ }
     }
     async function acquire() {
-      if (!startedAt || pausedAt || document.visibilityState !== "visible" || !nav.wakeLock?.request || wakeLockRef.current) return;
+      if (!startedAt || finished || pausedAt || document.visibilityState !== "visible" || !nav.wakeLock?.request || wakeLockRef.current) return;
       try { wakeLockRef.current = await nav.wakeLock.request("screen"); setWakeLockActive(true); } catch { setWakeLockActive(false); }
     }
-    void (!startedAt || pausedAt ? release() : acquire());
-    const onVisibility = () => void (document.visibilityState === "visible" && startedAt && !pausedAt ? acquire() : release());
+    void (!startedAt || finished || pausedAt ? release() : acquire());
+    const onVisibility = () => void (document.visibilityState === "visible" && startedAt && !finished && !pausedAt ? acquire() : release());
     document.addEventListener("visibilitychange", onVisibility);
     return () => { document.removeEventListener("visibilitychange", onVisibility); void release(); };
-  }, [hydrated, startedAt, pausedAt]);
+  }, [hydrated, startedAt, pausedAt, finished]);
 
-  const doneSets = useMemo(() => exercises.reduce((sum, exercise) => sum + exercise.sets.filter((set) => set.done).length, 0), [exercises]);
-  const totalSets = useMemo(() => exercises.filter((exercise) => !exercise.skipped).reduce((sum, exercise) => sum + exercise.sets.length, 0), [exercises]);
+  const doneSets = useMemo(() => completedLiveSetCount(exercises), [exercises]);
+  const totalSets = useMemo(() => plannedLiveSetCount(exercises), [exercises]);
   const liftRpe = useMemo(() => {
     const values = exercises.flatMap((exercise) => completedPerformance(exercise).map((set) => set.rir == null ? null : Math.max(1, Math.min(10, 10 - Number(set.rir))))).filter((value): value is number => value != null);
     return average(values) ?? targetRpe;
@@ -324,14 +451,19 @@ export default function LiveTrainingOS() {
   function startSession() {
     if (kind === "rest") return;
     const now = new Date().toISOString();
+    const safeDuration = clampLiveDuration(targetDuration, originalDuration);
+    const safeRpe = clampLiveRpe(targetRpe, originalRpe);
     if (kind === "lift" && !exercises.length) {
       const scale = overrideMode === "coach" ? prescription.volumeScale : 1;
       setExercises(makeExercises(scale));
       if (routineId) localStorage.setItem(ACTIVE_ROUTINE_KEY, routineId);
     }
-    setStartedAt(now); setPausedAt(null); setTotalPausedSeconds(0); setElapsed(0); setFinished(null); targetReachedRef.current = false; overTargetRef.current = false;
+    const nextSessionId = uid("live");
+    setSessionId(nextSessionId); setTargetDuration(safeDuration); setTargetRpe(safeRpe); setStartedAt(now); setPausedAt(null); setTotalPausedSeconds(0); setElapsed(0); setRestRemaining(0); setFinished(null); setDiscardArmed(false);
+    setBranch("normal"); branchRef.current = "normal"; setDiscomfort(null); setDiscomfortAdjusted(false); discomfortAdjustedRef.current = false; setReadinessDrift("same"); readinessDriftRef.current = "same";
+    finishingRef.current = false; targetReachedRef.current = false; overTargetRef.current = false;
     const modeLabel = overrideMode === "coach" ? "Coach prescription" : overrideMode === "original" ? "Original plan" : "Custom target";
-    setTimeline([{ id: uid("event"), elapsedSeconds: 0, label: "Session started", detail: `${modeLabel} · ${targetDuration} min · RPE ${targetRpe}`, tone: "good" }]);
+    setTimeline([{ id: uid("event"), elapsedSeconds: 0, label: "Session started", detail: `${modeLabel} · ${safeDuration} min · RPE ${safeRpe}`, tone: "good" }]);
     setNotice("Live Training OS is running.");
   }
   function togglePause() {
@@ -342,7 +474,8 @@ export default function LiveTrainingOS() {
     } else { setPausedAt(new Date().toISOString()); logEvent("Session paused", "Workout and rest timers are frozen."); }
   }
   function cancelSession() {
-    localStorage.removeItem(LIVE_SESSION_KEY); setStartedAt(null); setPausedAt(null); setTotalPausedSeconds(0); setElapsed(0); setRestRemaining(0); setTimeline([]); setExercises([]); setFinished(null); setNotice("Live session discarded. No history entry was created.");
+    if (!discardArmed) { setDiscardArmed(true); setNotice("Tap Discard again to permanently remove this unsaved live session."); return; }
+    localStorage.removeItem(LIVE_SESSION_KEY); setSessionId(null); setStartedAt(null); setPausedAt(null); setTotalPausedSeconds(0); setElapsed(0); setRestRemaining(0); setTimeline([]); setExercises([]); setFinished(null); setDiscardArmed(false); finishingRef.current = false; setNotice("Live session discarded. No history entry was created.");
   }
   function updateSet(exerciseId: string, setId: string, field: "weight" | "reps" | "rir", value: string) {
     setExercises((current) => current.map((exercise) => exercise.id !== exerciseId ? exercise : { ...exercise, sets: exercise.sets.map((set) => set.id !== setId ? set : { ...set, [field]: value === "" ? null : Number(value) }) }));
@@ -350,8 +483,13 @@ export default function LiveTrainingOS() {
   function toggleSet(exerciseIndex: number, setId: string) {
     const exercise = exercises[exerciseIndex]; const target = exercise?.sets.find((set) => set.id === setId); if (!exercise || !target) return;
     const completing = !target.done;
+    if (completing && (target.weight == null || !Number.isFinite(Number(target.weight)) || Number(target.weight) < 0 || target.reps == null || !Number.isFinite(Number(target.reps)) || Number(target.reps) <= 0 || (target.rir != null && (!Number.isFinite(Number(target.rir)) || Number(target.rir) < 0 || Number(target.rir) > 6)))) {
+      setNotice("Enter a valid weight and at least 1 rep before completing the set. RIR must be 0–6 when entered.");
+      return;
+    }
     setExercises((current) => current.map((item, index) => index !== exerciseIndex ? item : { ...item, sets: item.sets.map((set) => set.id === setId ? { ...set, done: !set.done } : set) }));
     if (completing) {
+      setNotice("");
       const effortRir = target.rir;
       const rest = smartRestSeconds(exercise, effortRir);
       setRestRemaining(rest);
@@ -361,8 +499,8 @@ export default function LiveTrainingOS() {
   function applyNextSet(exerciseIndex: number) {
     const exercise = exercises[exerciseIndex]; if (!exercise) return;
     const cue = nextSetRecommendation(exercise, targetRpe);
-    const match = cue.label.match(/([0-9.]+) lb/); if (!match) return;
-    const weight = Number(match[1]); const next = exercise.sets.find((set) => !set.done); if (!next) return;
+    if (cue.weight == null) return;
+    const weight = cue.weight; const next = exercise.sets.find((set) => !set.done); if (!next) return;
     setExercises((current) => current.map((item, index) => index !== exerciseIndex ? item : { ...item, sets: item.sets.map((set) => set.id === next.id ? { ...set, weight } : set) }));
     setRestRemaining(cue.restSeconds);
   }
@@ -373,12 +511,24 @@ export default function LiveTrainingOS() {
   }
   function substitute(index: number, definition: ExerciseDefinition) {
     const old = exercises[index]; if (!old) return;
+    const completedCount = completedPerformance(old).length;
+    const remainingCount = Math.max(0, old.sets.length - completedCount);
+    if (!remainingCount) { setNotice(`${old.name} is already complete; there is no remaining work to substitute.`); return; }
     const replacement = makeLiveExercise(definition, history, 1);
-    setExercises((current) => current.map((item, itemIndex) => itemIndex === index ? replacement : item));
-    logEvent("Exercise substituted", `${old.name} → ${definition.name}. Same-muscle replacement used to preserve the session goal.`);
+    const desiredSets = Array.from({ length: remainingCount }, (_, setIndex) => replacement.sets[setIndex] ?? { id: uid(`${definition.id}-set`), weight: replacement.sets.at(-1)?.weight ?? definition.fallbackWeight, reps: null, rir: null, done: false });
+    const resized = { ...replacement, sets: desiredSets };
+    setExercises((current) => {
+      if (!completedCount) return current.map((item, itemIndex) => itemIndex === index ? resized : item);
+      const next = [...current];
+      next[index] = { ...old, skipped: true };
+      next.splice(index + 1, 0, resized);
+      return next;
+    });
+    logEvent("Exercise substituted", completedCount ? `${old.name} completed work preserved; remaining sets moved to ${definition.name}.` : `${old.name} → ${definition.name}. Same-muscle replacement used to preserve the session goal.`);
   }
   function applyBranch(next: BranchMode) {
-    setBranch(next);
+    if (branchRef.current === next) { setNotice(`The ${next} branch is already active.`); return; }
+    branchRef.current = next; setBranch(next);
     if (next === "normal") { logEvent("Branch selected", "Continue the live session without additional reductions."); return; }
     if (next === "reduced accessories") {
       setTargetDuration((value) => Math.max(10, Math.round(value * 0.82)));
@@ -403,16 +553,20 @@ export default function LiveTrainingOS() {
     }
   }
   function logDiscomfort(value: LiveDiscomfort) {
-    setDiscomfort(value); logEvent("Discomfort logged", `${value} discomfort noted. The app will offer training modifications only; it is not diagnosing an injury.`, value === "joint" ? "stop" : "warn");
+    if (discomfort === value) return;
+    setDiscomfort(value); setDiscomfortAdjusted(false); discomfortAdjustedRef.current = false; logEvent("Discomfort logged", `${value} discomfort noted. The app will offer training modifications only; it is not diagnosing an injury.`, value === "joint" ? "stop" : "warn");
   }
   function discomfortReduce() {
-    setTargetDuration((value) => Math.max(10, Math.round(value * 0.8))); setTargetRpe((value) => Math.max(3, value - 1)); logEvent("Discomfort adjustment", "Remaining duration and intensity target reduced.", "warn");
+    if (discomfortAdjustedRef.current) { setNotice("The discomfort reduction is already applied."); return; }
+    discomfortAdjustedRef.current = true; setDiscomfortAdjusted(true);
+    setTargetDuration((value) => Math.max(10, Math.round(value * 0.8))); setTargetRpe((value) => Math.max(3, value - 1)); logEvent("Discomfort adjustment", "Remaining duration and intensity target reduced once for this discomfort flag.", "warn");
   }
   function discomfortSkipNext() {
     const index = exercises.findIndex((exercise) => !exercise.skipped && !exercise.sets.every((set) => set.done)); if (index >= 0) skipExercise(index);
   }
   function changeReadinessDrift(value: ReadinessDrift) {
-    setReadinessDrift(value);
+    if (readinessDriftRef.current === value) return;
+    readinessDriftRef.current = value; setReadinessDrift(value);
     if (value === "worse") {
       const elapsedMin = Math.ceil(elapsed / 60); setTargetRpe((current) => Math.max(3, current - 0.5)); setTargetDuration((current) => Math.max(elapsedMin + 8, Math.round(current * 0.9)));
       logEvent("Readiness drifted down", "Remaining prescription reduced slightly because the session feels worse than it did at the start.", "warn");
@@ -420,56 +574,64 @@ export default function LiveTrainingOS() {
     else logEvent("Readiness stable", "In-session readiness is tracking as expected.");
   }
   function addInterval() {
-    const split = Math.max(1, Number(intervalSplitInput || 0)); setIntervalSplits((current) => [...current, split]);
-    const targetPace = subtype === "Intervals" ? "Keep the next rep controlled enough to preserve quality." : "Interval recorded.";
-    logEvent(`Interval ${intervalSplits.length + 1}/${intervalTarget}`, `${intervalDistance} m · ${formatClock(split)}. ${targetPace}`, split < intervalSplitInput * 0.96 ? "warn" : "neutral");
+    const split = Math.max(1, Number(intervalSplitInput || 0));
+    const pace = intervalPaceSignal(split, intervalSplits);
+    setIntervalSplits((current) => [...current, split]);
+    logEvent(`Interval ${intervalSplits.length + 1}/${intervalTarget}`, `${intervalDistance} m · ${formatClock(split)}. ${pace.detail}`, pace.tone);
   }
   function toggleRecoveryModality(value: string) {
     setRecoveryModalities((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
   }
 
   function finishSession() {
-    if (!startedAt) return;
-    const durationSeconds = Math.max(60, elapsed);
+    if (!startedAt || !sessionId || finishingRef.current || finished) return;
+    if (kind === "lift" && !doneSets) { setNotice("Complete at least one valid lifting set before finishing."); return; }
+    finishingRef.current = true;
+    const durationSeconds = Math.max(60, elapsedSeconds(startedAt, pausedAt, totalPausedSeconds));
     const prs: string[] = [];
-    if (kind === "lift") {
-      if (!doneSets) { setNotice("Complete at least one lifting set before finishing."); return; }
-      for (const exercise of exercises) {
-        const completed = completedPerformance(exercise); if (!completed.length) continue;
-        const currentBest = Math.max(...completed.map((set) => estimateOneRepMax(set.weight, set.reps)), 0);
-        const priorBest = historicalBestE1rm(history, exercise.id);
-        if (priorBest > 0 && currentBest > priorBest + 0.5) prs.push(`${exercise.name}: e1RM ${Math.round(currentBest)} lb`);
+    try {
+      if (kind === "lift") {
+        for (const exercise of exercises) {
+          const completed = completedPerformance(exercise); if (!completed.length) continue;
+          const currentBest = Math.max(...completed.map((set) => estimateOneRepMax(set.weight, set.reps)), 0);
+          const priorBest = historicalBestE1rm(history, exercise.id);
+          if (priorBest > 0 && currentBest > priorBest + 0.5) prs.push(`${exercise.name}: e1RM ${Math.round(currentBest)} lb`);
+        }
+        const note = generatedSessionNote({ kind, dosePercent, currentRpe, targetRpe, branch, prCount: prs.length, discomfort });
+        const completedRirs = exercises.flatMap((exercise) => completedPerformance(exercise).map((set) => set.rir).filter((value): value is number => value != null));
+        const item: WorkoutHistoryItem = {
+          id: `workout-${sessionId}`, routineId: activeRoutine.id, name: activeRoutine.name, completedAt: new Date().toISOString(), durationSeconds,
+          totalVolume: Math.round(exercises.reduce((sum, exercise) => sum + completedPerformance(exercise).reduce((sub, set) => sub + set.weight * set.reps, 0), 0)),
+          completedSets: doneSets, averageRir: average(completedRirs), prs,
+          exercises: exercises.map((exercise) => ({ id: exercise.id, name: exercise.name, repMin: exercise.repMin, repMax: exercise.repMax, increment: exercise.increment, sets: completedPerformance(exercise).map((set) => ({ weight: set.weight, reps: set.reps, rir: set.rir, estimated1RM: estimateOneRepMax(set.weight, set.reps) })) })).filter((exercise) => exercise.sets.length),
+          sessionNote: `${note} Live Training OS quality ${quality}/100. Coach target ${targetDuration} min @ RPE ${targetRpe}.`,
+        };
+        const next = [item, ...history.filter((existing) => existing.id !== item.id)].slice(0, 150); localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); setHistory(next);
+        const summary = item.sessionNote ?? note; setFinished({ quality, note: summary, recovery: recovery.label, prs });
+      } else if (kind !== "rest") {
+        const hybridKind = kind as HybridSessionKind;
+        const note = generatedSessionNote({ kind, dosePercent, currentRpe, targetRpe, branch, prCount: 0, discomfort });
+        const intervalText = intervalSplits.length ? ` Intervals: ${intervalSplits.map((split) => formatClock(split)).join(", ")}.` : "";
+        const recoveryText = recoveryModalities.length ? ` Recovery modalities: ${recoveryModalities.join(", ")}.` : "";
+        saveHybridSession({ id: `hybrid-${sessionId}`, kind: hybridKind, title: `${title} · ${subtype}`, completedAt: new Date().toISOString(), durationMinutes: Math.max(1, Math.round(durationSeconds / 60)), effort: Math.max(1, Math.min(10, Math.round(effort))), notes: `${note}${intervalText}${recoveryText} Live Training OS quality ${quality}/100.`, distanceKm: kind === "run" ? distanceKm : null, elevationFeet: kind === "conditioning" ? elevationFeet : null, laps: kind === "pool" ? laps : null, poolMeters: kind === "pool" ? poolMeters : null, rounds: kind === "conditioning" ? rounds : null });
+        setHybrid(readHybridSessions()); setFinished({ quality, note: `${note}${intervalText}${recoveryText}`, recovery: recovery.label, prs: [] });
       }
-      const note = generatedSessionNote({ kind, dosePercent, currentRpe, targetRpe, branch, prCount: prs.length, discomfort });
-      const completedRirs = exercises.flatMap((exercise) => completedPerformance(exercise).map((set) => set.rir).filter((value): value is number => value != null));
-      const item: WorkoutHistoryItem = {
-        id: uid("workout"), routineId: activeRoutine.id, name: activeRoutine.name, completedAt: new Date().toISOString(), durationSeconds,
-        totalVolume: Math.round(exercises.reduce((sum, exercise) => sum + completedPerformance(exercise).reduce((sub, set) => sub + set.weight * set.reps, 0), 0)),
-        completedSets: doneSets, averageRir: average(completedRirs), prs,
-        exercises: exercises.map((exercise) => ({ id: exercise.id, name: exercise.name, repMin: exercise.repMin, repMax: exercise.repMax, increment: exercise.increment, sets: completedPerformance(exercise).map((set) => ({ weight: set.weight, reps: set.reps, rir: set.rir, estimated1RM: estimateOneRepMax(set.weight, set.reps) })) })).filter((exercise) => exercise.sets.length),
-        sessionNote: `${note} Live Training OS quality ${quality}/100. Coach target ${targetDuration} min @ RPE ${targetRpe}.`,
-      };
-      const next = [item, ...history].slice(0, 150); localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); setHistory(next);
-      const summary = item.sessionNote ?? note; setFinished({ quality, note: summary, recovery: recovery.label, prs });
-    } else if (kind !== "rest") {
-      const hybridKind = kind as HybridSessionKind;
-      const note = generatedSessionNote({ kind, dosePercent, currentRpe, targetRpe, branch, prCount: 0, discomfort });
-      const intervalText = intervalSplits.length ? ` Intervals: ${intervalSplits.map((split) => formatClock(split)).join(", ")}.` : "";
-      const recoveryText = recoveryModalities.length ? ` Recovery modalities: ${recoveryModalities.join(", ")}.` : "";
-      saveHybridSession({ id: uid("hybrid"), kind: hybridKind, title: `${title} · ${subtype}`, completedAt: new Date().toISOString(), durationMinutes: Math.max(1, Math.round(durationSeconds / 60)), effort: Math.max(1, Math.min(10, Math.round(effort))), notes: `${note}${intervalText}${recoveryText} Live Training OS quality ${quality}/100.`, distanceKm: kind === "run" ? distanceKm : null, elevationFeet: kind === "conditioning" ? elevationFeet : null, laps: kind === "pool" ? laps : null });
-      setHybrid(readHybridSessions()); setFinished({ quality, note: `${note}${intervalText}${recoveryText}`, recovery: recovery.label, prs: [] });
+      localStorage.removeItem(LIVE_SESSION_KEY);
+      setStartedAt(null); setPausedAt(null); setRestRemaining(0); setDiscardArmed(false);
+    } catch (error) {
+      finishingRef.current = false;
+      setNotice(error instanceof Error ? `Could not save the session: ${error.message}` : "Could not save the session safely.");
     }
-    localStorage.removeItem(LIVE_SESSION_KEY); setPausedAt(null); setRestRemaining(0); logEvent("Session completed", `Quality ${quality}/100 · estimated recovery ${recovery.label}.`, "good");
   }
 
   if (!hydrated) return <main className="live-shell"><p className="live-loading">Loading Live Training OS…</p></main>;
 
-  if (kind === "rest" && !startedAt) return <main className="live-shell"><header className="live-topbar"><div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9</p><h1>Recovery day</h1><p>The weekly plan marks today as rest. There is no training dose to chase.</p></div><a className="ti-secondary" href="/">Today</a></header><section className="live-card"><h2>Protect the recovery slot</h2><p>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p><div className="live-actions"><a className="ti-primary" href="/plan">Edit weekly plan</a><a className="ti-secondary" href="/live?kind=recovery&title=Recovery">Start recovery session</a></div></section></main>;
+  if (kind === "rest" && !startedAt) return <main className="live-shell"><header className="live-topbar"><div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.1</p><h1>Recovery day</h1><p>The weekly plan marks today as rest. There is no training dose to chase.</p></div><a className="ti-secondary" href="/">Today</a></header><section className="live-card"><h2>Protect the recovery slot</h2><p>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p><div className="live-actions"><a className="ti-primary" href="/plan">Edit weekly plan</a><a className="ti-secondary" href="/live?kind=recovery&title=Recovery">Start recovery session</a></div></section></main>;
 
   return (
     <main className={`live-shell ${startedAt ? "is-live" : ""} ${pausedAt ? "is-paused" : ""}`}>
       <header className="live-topbar">
-        <div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9</p><h1>{title}</h1><p>{startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}</p></div>
+        <div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.1</p><h1>{title}</h1><p>{startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}</p></div>
         <div className="live-top-actions"><a className="ti-secondary" href="/coach">Coach</a><a className="ti-secondary" href="/">Today</a></div>
       </header>
 
@@ -498,7 +660,7 @@ export default function LiveTrainingOS() {
 
         <section className="live-two-col">
           <article className="live-card"><p className="ti-eyebrow">LIVE READINESS DRIFT</p><h2>How do you feel now?</h2><div className="live-segments">{(["better", "same", "worse"] as ReadinessDrift[]).map((value) => <button className={readinessDrift === value ? "active" : ""} key={value} onClick={() => changeReadinessDrift(value)}>{value === "better" ? "↑ Better" : value === "worse" ? "↓ Worse" : "Same"}</button>)}</div></article>
-          <article className="live-card"><p className="ti-eyebrow">DISCOMFORT BRANCH</p><h2>Modify, don't diagnose</h2><div className="live-discomfort">{(["joint", "muscle", "cramp", "technique", "other"] as LiveDiscomfort[]).map((value) => <button className={discomfort === value ? "active" : ""} key={value} onClick={() => logDiscomfort(value)}>{value}</button>)}</div>{discomfort && <div className="live-branch-actions"><button onClick={discomfortReduce}>Reduce load/dose</button>{kind === "lift" && <button onClick={discomfortSkipNext}>Skip next movement</button>}<button onClick={() => applyBranch("recovery finish")}>Recovery finish</button><button onClick={finishSession}>End session</button></div>}</article>
+          <article className="live-card"><p className="ti-eyebrow">DISCOMFORT BRANCH</p><h2>Modify, don't diagnose</h2><div className="live-discomfort">{(["joint", "muscle", "cramp", "technique", "other"] as LiveDiscomfort[]).map((value) => <button className={discomfort === value ? "active" : ""} key={value} onClick={() => logDiscomfort(value)}>{value}</button>)}</div>{discomfort && <div className="live-branch-actions"><button disabled={discomfortAdjusted} onClick={discomfortReduce}>{discomfortAdjusted ? "Dose reduction applied" : "Reduce load/dose"}</button>{kind === "lift" && <button onClick={discomfortSkipNext}>Skip next movement</button>}<button onClick={() => applyBranch("recovery finish")}>Recovery finish</button><button onClick={finishSession}>End session</button></div>}</article>
         </section>
 
         {kind === "lift" ? <>
@@ -532,7 +694,7 @@ export default function LiveTrainingOS() {
         </section>}
 
         <section className="live-card live-timeline"><div className="live-section-head"><div><p className="ti-eyebrow">COACH TIMELINE</p><h2>Why the session changed</h2></div><span>{timeline.length} events</span></div>{timeline.length ? <div>{timeline.map((event) => <article className={`tone-${event.tone}`} key={event.id}><time>{formatClock(event.elapsedSeconds)}</time><span><strong>{event.label}</strong><small>{event.detail}</small></span></article>)}</div> : <p>No live events yet.</p>}</section>
-        <div className="live-bottom-actions"><button className="ti-secondary" onClick={cancelSession}>Discard session</button><button className="ti-primary" onClick={finishSession}>{smartFinish ? "Finish at productive dose" : "Complete session"}</button></div>
+        <div className="live-bottom-actions"><button className="ti-secondary" onClick={cancelSession}>{discardArmed ? "Confirm discard" : "Discard session"}</button><button className="ti-primary" onClick={finishSession}>{smartFinish ? "Finish at productive dose" : "Complete session"}</button></div>
       </>}
 
       {finished && <section className="live-finished"><p className="ti-eyebrow">SESSION COMPLETE</p><h2>{finished.quality}/100 session quality</h2><p>{finished.note}</p><div className="live-finished-grid"><div><span>Estimated recovery</span><strong>{finished.recovery}</strong><small>Coaching heuristic, not a medical measurement</small></div><div><span>PR signals</span><strong>{finished.prs.length}</strong><small>{finished.prs.join(" · ") || "No PR signal required for a good session"}</small></div></div><div className="live-actions"><a className="ti-primary" href="/history">View saved session</a><a className="ti-secondary" href="/coach">See updated coach</a><a className="ti-secondary" href="/">Back to Today</a></div></section>}

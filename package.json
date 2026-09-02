@@ -1,13 +1,14 @@
 {
   "name": "workout-tracker",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:live": "rm -rf .tmp-live-test && tsc --ignoreConfig --rootDir src --module node16 --moduleResolution node16 --target es2022 --esModuleInterop --skipLibCheck --outDir .tmp-live-test src/lib/liveTraining.ts && node scripts/live-reliability.test.cjs && rm -rf .tmp-live-test"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
