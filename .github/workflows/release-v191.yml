@@ -1,0 +1,51 @@
+name: Release v1.9.1 Live Reliability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-v191.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply verified v1.9.1 patch
+        run: |
+          base64 -d scripts/v191.patch.gz.b64 | gzip -dc > /tmp/v191.patch
+          git apply --check /tmp/v191.patch
+          git apply /tmp/v191.patch
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Live reliability checks
+        run: npm run test:live
+      - name: Production build
+        run: npm run build
+      - name: Diff sanity check
+        run: |
+          test "$(node -p "require('./package.json').version")" = "1.9.1"
+          grep -q 'workout-tracker-v1.9.1-live-reliability' public/sw.js
+          grep -q 'LIVE TRAINING OS · V1.9.1' src/components/LiveTrainingOS.tsx
+          grep -q 'test:live' package.json
+          grep -q 'Live Training reliability checks' .github/workflows/web.yml
+          git diff --check
+      - name: Commit verified v1.9.1
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add app src public scripts package.json package-lock.json .github/workflows/web.yml
+          git rm -f scripts/v191.patch.gz.b64 .github/workflows/release-v191.yml
+          git commit -m "Release v1.9.1 Live Training reliability"
+          git push
