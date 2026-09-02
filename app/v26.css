@@ -1,0 +1,256 @@
+/* v1.9.3 — mobile menu fix + Gym declutter */
+
+/* MORE: the sheet is flex-centered by the backdrop. Never translate it again. */
+.v11-more-backdrop{
+  align-items:flex-end!important;
+  justify-content:center!important;
+  padding:12px 10px calc(82px + env(safe-area-inset-bottom))!important;
+  overflow:hidden!important;
+}
+.v11-more-sheet.v16-more-sheet{
+  position:relative!important;
+  inset:auto!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  transform:none!important;
+  width:min(100%,560px)!important;
+  max-width:560px!important;
+  margin:0 auto!important;
+  box-sizing:border-box!important;
+  max-height:min(68dvh,620px)!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+}
+
+/* GYM: quieter shell and one obvious hierarchy */
+.gym-shell.gym-v12{
+  width:min(calc(100% - 16px),920px)!important;
+  margin:0 auto!important;
+  padding:16px 0 calc(116px + env(safe-area-inset-bottom))!important;
+}
+.gym-v12 .gym-hero{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:12px!important;
+  margin-bottom:10px!important;
+  padding:0 2px!important;
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.gym-v12 .gym-hero h1{
+  margin:2px 0 3px!important;
+  font-size:clamp(1.85rem,8vw,3.3rem)!important;
+  line-height:.98!important;
+  letter-spacing:-.05em!important;
+  text-shadow:none!important;
+}
+.gym-v12 .gym-hero .gym-muted{margin:0!important;color:#777b82!important;font-size:.78rem!important;line-height:1.35!important;max-width:520px!important}
+.gym-v12 .gym-eyebrow{font-size:.61rem!important;letter-spacing:.13em!important;color:#73777d!important}
+
+.gym-v12-session{
+  min-width:152px!important;
+  padding:10px 11px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:13px!important;
+  background:#0d0d0f!important;
+  box-shadow:none!important;
+}
+.gym-v12-session>span{font-size:.58rem!important;letter-spacing:.13em!important;color:#6f7379!important}
+.gym-v12-session>strong{font-size:1.45rem!important;line-height:1!important;margin:3px 0!important;font-variant-numeric:tabular-nums}
+.gym-v12-session>small{display:none!important}
+.gym-session-actions{display:flex!important;gap:5px!important;margin-top:7px!important;align-items:center!important}
+.gym-session-actions>button{min-height:34px!important;padding:6px 9px!important;border-radius:8px!important;font-size:.7rem!important;box-shadow:none!important;transform:none!important}
+.gym-session-menu{margin:0!important}
+.gym-session-menu>summary{list-style:none!important;cursor:pointer!important;font-size:0!important;width:34px!important;height:34px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:8px!important;background:#131315!important;display:grid!important;place-items:center!important;color:#85858b!important}
+.gym-session-menu>summary::-webkit-details-marker{display:none!important}
+.gym-session-menu>summary::after{content:"•••";font-size:.8rem!important;letter-spacing:.06em}
+.gym-session-menu>summary span{display:none!important}
+.gym-session-menu>div{position:absolute!important;right:10px!important;z-index:35!important;width:min(280px,calc(100vw - 28px))!important;margin-top:6px!important;padding:11px!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:11px!important;background:#111113!important;box-shadow:0 18px 45px rgba(0,0,0,.5)!important}
+.gym-session-menu>div p{font-size:.72rem!important;color:#777!important;line-height:1.4!important}
+
+/* Routine is the only prominent selector. */
+.gym-v12-overview{
+  display:grid!important;
+  grid-template-columns:minmax(160px,.65fr) 1.35fr!important;
+  gap:8px!important;
+  margin-bottom:8px!important;
+}
+.gym-routine-select,.gym-v12-progress{
+  border:1px solid rgba(255,255,255,.075)!important;
+  border-radius:12px!important;
+  background:#0b0b0d!important;
+  box-shadow:none!important;
+  padding:10px!important;
+}
+.gym-routine-select>span,.gym-v12-progress span{font-size:.62rem!important;color:#707078!important;letter-spacing:.08em!important;text-transform:uppercase!important;font-weight:800!important}
+.gym-routine-select select{
+  width:100%!important;
+  margin-top:5px!important;
+  min-height:36px!important;
+  padding:6px 28px 6px 9px!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:8px!important;
+  background:#121214!important;
+  color:#f1f1f2!important;
+  font-size:.82rem!important;
+  box-shadow:none!important;
+}
+.gym-v12-progress{display:grid!important;align-content:center!important;gap:5px!important}
+.gym-v12-progress>div:first-child{display:flex!important;justify-content:space-between!important;gap:10px!important;align-items:center!important}
+.gym-v12-progress strong{font-size:.8rem!important}
+.gym-v12-progress small{font-size:.68rem!important;color:#707078!important}
+.gym-progress-track{height:5px!important;background:#19191c!important;border-radius:999px!important;overflow:hidden!important}
+
+.flow-readiness,.flow-live-compare,.gym-rest-strip{
+  margin-bottom:7px!important;
+  padding:9px 11px!important;
+  border-radius:11px!important;
+  box-shadow:none!important;
+  background:#0c0c0e!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+}
+.flow-live-compare{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important}
+.flow-live-compare>div:first-child span,.gym-rest-strip span{font-size:.58rem!important;letter-spacing:.1em!important;color:#696970!important}
+.flow-live-compare>div:first-child strong,.gym-rest-strip strong{font-size:.82rem!important}
+.flow-live-metrics{display:flex!important;gap:4px!important}.flow-live-metrics span{padding:4px 6px!important;border-radius:7px!important;background:#131315!important;font-size:.62rem!important}
+.gym-rest-strip{display:flex!important;align-items:center!important;justify-content:space-between!important}.gym-rest-actions{display:flex!important;gap:5px!important;align-items:center!important}.gym-rest-actions button,.gym-rest-actions label{min-height:30px!important;padding:5px 7px!important;border-radius:7px!important;font-size:.66rem!important;box-shadow:none!important}
+
+/* Workout tools become tiny utility chips, not another menu bar. */
+.gym-tools-row.gym-v12-tools{
+  display:flex!important;
+  gap:5px!important;
+  overflow-x:auto!important;
+  scrollbar-width:none!important;
+  padding:0 0 8px!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+.gym-tools-row.gym-v12-tools::-webkit-scrollbar{display:none!important}
+.gym-tools-row.gym-v12-tools button{
+  flex:0 0 auto!important;
+  min-height:32px!important;
+  padding:6px 9px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,255,255,.075)!important;
+  background:#101012!important;
+  color:#88888f!important;
+  box-shadow:none!important;
+  transform:none!important;
+  font-size:.68rem!important;
+}
+.gym-tools-row.gym-v12-tools button.active{background:#ececed!important;color:#09090a!important;border-color:#ececed!important}
+.gym-tools-row.gym-v12-tools button span{display:none!important}
+.gym-tool-dropdown{margin:0 0 8px!important;padding:12px!important;border-radius:12px!important;border:1px solid rgba(255,255,255,.08)!important;background:#0d0d0f!important;box-shadow:none!important}
+.gym-dropdown-head{margin-bottom:9px!important}.gym-dropdown-head h2{font-size:1rem!important;margin:2px 0!important}.gym-dropdown-head>button{padding:6px 8px!important;border-radius:7px!important;font-size:.68rem!important}
+
+/* Exercises: flat, compact, one expanded card at a time. */
+.gym-stack.gym-v12-stack{display:grid!important;gap:7px!important}
+.gym-card.gym-v12-card{
+  padding:0!important;
+  border-radius:13px!important;
+  border:1px solid rgba(255,255,255,.075)!important;
+  background:#0b0b0d!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+  transform:none!important;
+}
+.gym-card.gym-v12-card::before{display:none!important}
+.gym-v12-card-head{display:grid!important;grid-template-columns:28px minmax(0,1fr)!important;align-items:stretch!important;border-bottom:0!important}
+.gym-drag-handle{width:28px!important;min-height:58px!important;border:0!important;border-right:1px solid rgba(255,255,255,.05)!important;border-radius:0!important;background:#0e0e10!important;color:#55565c!important;box-shadow:none!important;transform:none!important;font-size:.72rem!important}
+.gym-card-toggle{min-height:58px!important;padding:9px 10px!important;background:transparent!important;border:0!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:space-between!important;text-align:left!important}
+.gym-card-toggle small{font-size:.56rem!important;letter-spacing:.09em!important;color:#666a70!important}
+.gym-card-toggle strong{font-size:.97rem!important;margin:2px 0!important;line-height:1.15!important}
+.gym-card-toggle em{font-size:.64rem!important;color:#6f7278!important;font-style:normal!important}
+.gym-card-toggle>b{font-size:.72rem!important;color:#666!important}
+.gym-card-body{padding:0 10px 10px!important;border-top:1px solid rgba(255,255,255,.055)!important}
+.gym-badges.gym-v12-badges{gap:4px!important;margin:8px 0 6px!important}.gym-badges.gym-v12-badges span{padding:4px 6px!important;border-radius:6px!important;background:#151517!important;box-shadow:none!important;font-size:.56rem!important;color:#85858b!important}
+
+/* Remove duplicated coaching/history blocks; the useful next-set cue stays. */
+.flow-progression-card{display:none!important}
+.flow-history-dropdown{display:none!important}
+.flow-beat-card,.flow-next-cue{
+  margin:6px 0!important;
+  padding:9px 10px!important;
+  border-radius:9px!important;
+  border:1px solid rgba(255,255,255,.06)!important;
+  background:#0e0e10!important;
+  box-shadow:none!important;
+}
+.flow-beat-card{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}.flow-beat-card span,.flow-next-cue span{font-size:.56rem!important;letter-spacing:.09em!important;color:#6d7076!important}.flow-beat-card strong,.flow-next-cue strong{font-size:.82rem!important}.flow-beat-card small,.flow-next-cue small{font-size:.65rem!important;color:#73767c!important}.flow-beat-card button{min-height:30px!important;padding:5px 7px!important;border-radius:7px!important;font-size:.63rem!important;box-shadow:none!important}
+
+/* Exercise settings is one quiet row instead of a giant dropdown. */
+.gym-options-dropdown{margin:6px 0!important;border-top:1px solid rgba(255,255,255,.05)!important;padding-top:6px!important}
+.gym-options-dropdown>summary{list-style:none!important;cursor:pointer!important;font-size:0!important;color:#74777e!important;padding:5px 0!important;display:flex!important;align-items:center!important;justify-content:flex-end!important}
+.gym-options-dropdown>summary::-webkit-details-marker{display:none!important}
+.gym-options-dropdown>summary::before{content:"••• Exercise settings";font-size:.64rem!important;letter-spacing:.02em!important}
+.gym-options-dropdown>summary span{display:none!important}
+.gym-options-dropdown[open]>summary::before{content:"Close settings"}
+.gym-exercise-controls{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding-top:6px!important}
+.gym-exercise-controls label{font-size:.64rem!important;color:#70737a!important}.gym-exercise-controls input,.gym-exercise-controls select,.gym-exercise-controls button{min-height:34px!important;border-radius:7px!important;font-size:.68rem!important;box-shadow:none!important;transform:none!important}
+.gym-note{min-height:48px!important;margin:7px 0 0!important;border-radius:8px!important;font-size:.72rem!important}
+
+/* Sets: spreadsheet-like, not a stack of mini cards. */
+.gym-set-header{display:grid!important;grid-template-columns:44px 60px 1fr 1fr 1fr 38px!important;gap:5px!important;padding:5px 4px!important;font-size:.55rem!important;color:#5f6268!important;letter-spacing:.08em!important}
+.gym-set-list{gap:0!important;border-top:1px solid rgba(255,255,255,.055)!important}
+.gym-set{
+  display:grid!important;
+  grid-template-columns:44px 60px 1fr 1fr 1fr 38px!important;
+  gap:5px!important;
+  align-items:center!important;
+  padding:6px 4px!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.05)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.gym-set.done{background:rgba(213,255,83,.035)!important;border-bottom-color:rgba(213,255,83,.08)!important}
+.gym-set>select{
+  width:44px!important;
+  min-width:0!important;
+  height:32px!important;
+  padding:0 3px!important;
+  border:0!important;
+  border-radius:6px!important;
+  appearance:none!important;
+  background:#111113!important;
+  color:#777a80!important;
+  box-shadow:none!important;
+  font-size:.58rem!important;
+  text-align:center!important;
+}
+.gym-prev{font-size:.6rem!important;color:#676a70!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.gym-set input{min-width:0!important;height:34px!important;padding:5px 4px!important;border:1px solid rgba(255,255,255,.065)!important;border-radius:7px!important;background:#101012!important;box-shadow:none!important;font-size:.76rem!important;text-align:center!important}
+.gym-check{width:34px!important;height:34px!important;border-radius:7px!important;box-shadow:none!important;transform:none!important}
+.gym-set.done .gym-check{box-shadow:none!important}
+.gym-quick.gym-v12-quick{grid-column:2/-1!important;display:flex!important;justify-content:flex-end!important;gap:4px!important;padding-top:2px!important}.gym-quick.gym-v12-quick button{min-height:26px!important;padding:4px 6px!important;border-radius:6px!important;font-size:.58rem!important;box-shadow:none!important;transform:none!important;background:#111113!important;color:#74777d!important}
+.gym-add-set{margin:7px 0 0 auto!important;display:block!important;min-height:30px!important;padding:5px 8px!important;border-radius:7px!important;font-size:.64rem!important;box-shadow:none!important;transform:none!important;background:#111113!important;color:#85888e!important}
+
+/* Session note + finish should not look like nested menus. */
+.gym-session-note-dropdown{margin:9px 0 7px!important;border:1px solid rgba(255,255,255,.065)!important;border-radius:10px!important;background:#0b0b0d!important;padding:0 10px!important}
+.gym-session-note-dropdown>summary{min-height:38px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;font-size:.72rem!important;color:#83868c!important;cursor:pointer!important}.gym-session-note-dropdown textarea{margin:0 0 9px!important;min-height:60px!important;border-radius:8px!important;font-size:.72rem!important}
+.gym-finish.gym-v12-finish{margin-top:7px!important;padding:11px!important;border-radius:12px!important;background:#0c0c0e!important;border:1px solid rgba(255,255,255,.075)!important;box-shadow:none!important}.gym-finish.gym-v12-finish h2{font-size:1rem!important;margin:2px 0!important}.gym-finish.gym-v12-finish .gym-muted{font-size:.68rem!important}.gym-finish.gym-v12-finish>button{min-height:38px!important;padding:7px 10px!important;border-radius:8px!important;box-shadow:none!important;transform:none!important;font-size:.72rem!important}
+.gym-finish-dropdown{margin-top:8px!important;padding:9px!important;border-radius:9px!important;background:#101012!important;border:1px solid rgba(255,255,255,.06)!important}.gym-finish-dropdown button{box-shadow:none!important;transform:none!important}
+
+@media(max-width:620px){
+  .v11-more-backdrop{padding-left:8px!important;padding-right:8px!important}
+  .v11-more-sheet.v16-more-sheet{width:100%!important;border-radius:16px!important}
+  .gym-v12 .gym-hero{grid-template-columns:1fr!important}
+  .gym-v12-session{display:grid!important;grid-template-columns:1fr auto!important;grid-template-areas:"label time" "actions actions"!important;align-items:end!important;min-width:0!important;width:100%!important;padding:8px 9px!important}
+  .gym-v12-session>span{grid-area:label!important;align-self:center!important}.gym-v12-session>strong{grid-area:time!important;text-align:right!important}.gym-session-actions{grid-area:actions!important;margin-top:5px!important}
+  .gym-v12-overview{grid-template-columns:1fr!important}
+  .gym-routine-select{padding:8px!important}.gym-v12-progress{padding:8px 9px!important}
+  .flow-live-compare{align-items:flex-start!important}.flow-live-metrics{flex-wrap:wrap!important;justify-content:flex-end!important}
+  .gym-set-header,.gym-set{grid-template-columns:38px 50px minmax(0,1fr) minmax(0,.9fr) minmax(0,.8fr) 34px!important;gap:4px!important}
+  .gym-set>select{width:38px!important}.gym-check{width:32px!important;height:32px!important}.gym-set input{font-size:.72rem!important;padding:4px 2px!important}
+}
+
+@media(max-width:390px){
+  .gym-set-header,.gym-set{grid-template-columns:34px 42px minmax(0,1fr) minmax(0,.9fr) minmax(0,.75fr) 31px!important;gap:3px!important}
+  .gym-set>select{width:34px!important;font-size:.52rem!important}.gym-prev{font-size:.55rem!important}.gym-set input{font-size:.68rem!important}.gym-check{width:30px!important;height:30px!important}
+}
