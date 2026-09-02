@@ -77,7 +77,7 @@ struct WatchContentView: View {
                                 .foregroundStyle(.secondary)
 
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text("\(set.weight ?? 0, specifier: \"%.0f\")")
+                                Text((set.weight ?? 0).formatted(.number.precision(.fractionLength(0))))
                                     .font(.system(size: 30, weight: .bold, design: .rounded))
                                     .monospacedDigit()
                                 Text("lb")
@@ -162,7 +162,6 @@ private struct RestCountdown: View {
                     .foregroundStyle(.secondary)
                 Text("\(remaining)s")
                     .font(.title2.monospacedDigit().bold())
-                ProgressView(value: Double(remaining), total: Double(max(remaining, 1)))
                 HStack {
                     Button("Skip") { store.endRest() }
                     Button("+30") { store.adjustRest(30) }
