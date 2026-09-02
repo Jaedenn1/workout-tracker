@@ -1184,7 +1184,7 @@ export default function FirstWorkoutGymLogger() {
     <main className={`gym-shell gym-v12 ${sessionActive && pausedAt ? "session-paused" : ""}`}>
       <header className="gym-hero gym-v12-hero">
         <div>
-          <p className="gym-eyebrow">FIRST WORKOUT READY</p>
+          <p className="gym-eyebrow">TRAINING INTELLIGENCE</p>
           <h1>{activeRoutine.name}</h1>
           <p className="gym-muted">Log the set in front of you. Everything else stays one tap deeper.</p>
         </div>
@@ -1374,7 +1374,7 @@ export default function FirstWorkoutGymLogger() {
                           <button className="gym-check" onClick={() => toggleSet(exercise.id, set.id, setIndex)} aria-label={set.completed ? "Reopen completed set" : "Complete set"}>{set.completed ? "✓" : ""}</button>
                           <div className="gym-quick gym-v12-quick">
                             {set.completed && <button onClick={() => setEditingCompleted((current) => ({ ...current, [set.id]: !editing }))}>{editing ? "Done" : "Edit"}</button>}
-                            {!locked && <button onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Copy previous</button>}
+                            {!locked && <button onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Use previous</button>}
                             <button className="danger" onClick={() => removeSet(exercise.id, set.id)}>Delete</button>
                           </div>
                         </div>
