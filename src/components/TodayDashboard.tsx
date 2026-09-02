@@ -60,7 +60,8 @@ function readinessLabel(record: ReadinessRecord | null) {
 
 function planAction(item: WeeklyPlanDay) {
   if (item.kind === "lift") return { href: "/gym", label: "Open gym logger" };
-  return { href: "/plan", label: "Open weekly plan" };
+  if (item.kind === "rest") return { href: "/plan", label: "Recovery day" };
+  return { href: `/session?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}`, label: "Track session" };
 }
 
 export default function TodayDashboard() {
@@ -123,7 +124,7 @@ export default function TodayDashboard() {
   return (
     <main className="ti-shell ti-home">
       <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.5</p><h1>Training Console</h1></div>
+        <div><p className="ti-eyebrow">TODAY · V1.6</p><h1>Training Console</h1></div>
         <a className="ti-icon-link" href="/plan">Weekly plan</a>
       </header>
 
@@ -138,9 +139,9 @@ export default function TodayDashboard() {
           </div>
         </div>
         <div className="ti-hero-stat">
-          <span>{todayPlan.kind === "lift" ? `Last ${activeRoutine.name}` : "Strength plan"}</span>
-          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "No session yet") : `${activeRoutine.name} queued`}</strong>
-          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · about ${plannedSets} working sets${progressionReady ? ` · ${progressionReady} ready to progress` : ""}`) : "Your lifting logger stays ready even on non-lifting days."}</small>
+          <span>{todayPlan.kind === "lift" ? `Last ${activeRoutine.name}` : "Hybrid tracking"}</span>
+          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "No session yet") : "Logger ready"}</strong>
+          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · about ${plannedSets} working sets${progressionReady ? ` · ${progressionReady} ready to progress` : ""}`) : "Run, conditioning, pool, and recovery sessions now save to hybrid history."}</small>
         </div>
       </section>
 
@@ -155,14 +156,15 @@ export default function TodayDashboard() {
 
       <section className="ti-home-grid">
         <a className="ti-card ti-click-card" href="/plan"><span>Weekly plan</span><strong>{todayPlan.title}</strong><small>{todayPlan.shortDay} · {todayPlan.kind} →</small></a>
+        <a className="ti-card ti-click-card" href="/session"><span>Hybrid logger</span><strong>Run · Condition · Recover</strong><small>Track non-lifting work →</small></a>
         <a className="ti-card ti-click-card" href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Log a baseline"}</strong><small>{firstTarget?.label ?? "Progression will appear after a session"} →</small></a>
         <a className="ti-card ti-click-card" href="/bodyweight"><span>Bodyweight</span><strong>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</strong><small>View and edit entries →</small></a>
         <a className="ti-card ti-click-card" href="/prs"><span>Latest PR</span><strong>{latestPr?.pr ?? "No PR yet"}</strong><small>{latestPr ? formatShortDate(latestPr.completedAt) : "Your record board is ready"} →</small></a>
-        <a className="ti-card ti-click-card" href="/history"><span>Last session</span><strong>{history[0]?.name ?? "No workouts yet"}</strong><small>{history[0] ? `${history[0].completedSets} sets · ${formatDuration(history[0].durationSeconds)}` : "History starts with workout #1"} →</small></a>
+        <a className="ti-card ti-click-card" href="/history"><span>Training history</span><strong>{history[0]?.name ?? "Open journal"}</strong><small>Lifting + hybrid sessions →</small></a>
       </section>
 
       <section className="ti-quick-row">
-        <a href="/gym">⚡ Gym</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
+        <a href="/gym">⚡ Gym</a><a href="/session">◎ Track</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
       </section>
     </main>
   );
