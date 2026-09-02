@@ -19,6 +19,7 @@ import "./v16.css";
 import "./v17.css";
 import "./v18.css";
 import "./v19.css";
+import "./v20.css";
 
 export const metadata: Metadata = { title: "Workout Tracker", description: "Fast personal lifting tracker", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
 export const viewport: Viewport = { themeColor: "#080808" };
