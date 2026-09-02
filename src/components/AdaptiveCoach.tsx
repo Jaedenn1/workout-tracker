@@ -5,7 +5,6 @@ import { defaultRoutines, type RoutineDefinition } from "../data/training";
 import { buildAdaptiveWeek } from "../lib/adaptiveTraining";
 import {
   buildAdvancedIntelligence,
-  COACH_FEEDBACK_KEY,
   readCoachFeedback,
   refineRecommendation,
   saveCoachFeedback,
