@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildAdaptiveWeek } from "../lib/adaptiveTraining";
+import { readHybridSessions, type HybridSession } from "../lib/hybridSessions";
 import { defaultRoutines, getExerciseDefinition, type RoutineDefinition } from "../data/training";
 import {
   BODYWEIGHT_KEY,
@@ -72,6 +74,7 @@ export default function TodayDashboard() {
   const [bodyweight, setBodyweight] = useState<BodyweightEntry[]>([]);
   const [readiness, setReadiness] = useState<ReadinessRecord[]>([]);
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanDay[]>(defaultWeeklyPlan);
+  const [hybridSessions, setHybridSessions] = useState<HybridSession[]>([]);
   const today = localDay(new Date());
 
   useEffect(() => {
@@ -88,10 +91,16 @@ export default function TodayDashboard() {
     setBodyweight(safeArray<BodyweightEntry>(localStorage.getItem(BODYWEIGHT_KEY)));
     setReadiness(safeArray<ReadinessRecord>(localStorage.getItem(READINESS_KEY)));
     setWeeklyPlan(readWeeklyPlan());
+    setHybridSessions(readHybridSessions());
 
     const onPlanChange = () => setWeeklyPlan(readWeeklyPlan());
+    const onHybridChange = () => setHybridSessions(readHybridSessions());
     window.addEventListener("workout-tracker:weekly-plan", onPlanChange);
-    return () => window.removeEventListener("workout-tracker:weekly-plan", onPlanChange);
+    window.addEventListener("workout-tracker:hybrid-session", onHybridChange);
+    return () => {
+      window.removeEventListener("workout-tracker:weekly-plan", onPlanChange);
+      window.removeEventListener("workout-tracker:hybrid-session", onHybridChange);
+    };
   }, []);
 
   const activeRoutine = routines.find((routine) => routine.id === activeRoutineId) ?? routines[0] ?? defaultRoutines[0];
@@ -99,6 +108,7 @@ export default function TodayDashboard() {
   const todayReadiness = readiness.find((item) => item.date === today) ?? null;
   const todayPlan = weeklyPlan[todayPlanIndex()] ?? defaultWeeklyPlan[todayPlanIndex()];
   const todayPlanAction = planAction(todayPlan);
+  const adaptiveWeek = useMemo(() => buildAdaptiveWeek(history, hybridSessions, weeklyPlan, readiness), [history, hybridSessions, weeklyPlan, readiness]);
   const summaries = useMemo(() => allExerciseSummaries(history), [history]);
   const summaryMap = useMemo(() => new Map(summaries.map((item) => [item.id, item])), [summaries]);
   const progressionReady = activeRoutine.exerciseIds.filter((id) => summaryMap.get(id)?.progression?.action === "increase").length;
@@ -124,8 +134,8 @@ export default function TodayDashboard() {
   return (
     <main className="ti-shell ti-home">
       <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.6</p><h1>Training Console</h1></div>
-        <a className="ti-icon-link" href="/plan">Weekly plan</a>
+        <div><p className="ti-eyebrow">TODAY · V1.7</p><h1>Training Console</h1></div>
+        <div className="ti-top-actions"><a className="ti-icon-link" href="/coach">Coach</a><a className="ti-icon-link" href="/plan">Weekly plan</a></div>
       </header>
 
       <section className="ti-today-hero">
@@ -145,6 +155,8 @@ export default function TodayDashboard() {
         </div>
       </section>
 
+      <a className="ti-coach-strip" href="/coach"><span>Adaptive coach · {adaptiveWeek.todayRecommendation.signal}</span><strong>{adaptiveWeek.todayRecommendation.label}</strong><small>{adaptiveWeek.todayRecommendation.reason}</small></a>
+
       <section className="ti-readiness-card">
         <div className="ti-section-head"><div><p className="ti-eyebrow">READINESS</p><h2>How are you today?</h2></div><span>{readinessLabel(todayReadiness)}</span></div>
         <div className="ti-readiness-grid">
@@ -155,6 +167,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-home-grid">
+        <a className="ti-card ti-click-card" href="/coach"><span>Adaptive coach</span><strong>{adaptiveWeek.todayRecommendation.label}</strong><small>{adaptiveWeek.completionRate == null ? "Week intelligence ready" : `${adaptiveWeek.completionRate}% plan-to-date`} →</small></a>
         <a className="ti-card ti-click-card" href="/plan"><span>Weekly plan</span><strong>{todayPlan.title}</strong><small>{todayPlan.shortDay} · {todayPlan.kind} →</small></a>
         <a className="ti-card ti-click-card" href="/session"><span>Hybrid logger</span><strong>Run · Condition · Recover</strong><small>Track non-lifting work →</small></a>
         <a className="ti-card ti-click-card" href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Log a baseline"}</strong><small>{firstTarget?.label ?? "Progression will appear after a session"} →</small></a>
@@ -164,7 +177,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-quick-row">
-        <a href="/gym">⚡ Gym</a><a href="/session">◎ Track</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
+        <a href="/gym">⚡ Gym</a><a href="/session">◎ Track</a><a href="/coach">◈ Coach</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
       </section>
     </main>
   );

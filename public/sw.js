@@ -1,6 +1,6 @@
-const CACHE = "workout-tracker-v1.6.1-stability";
+const CACHE = "workout-tracker-v1.7-adaptive-intelligence";
 const CORE_SHELL = ["/", "/offline", "/icon.svg"];
-const OPTIONAL_SHELL = ["/gym", "/history", "/progress", "/bodyweight", "/prs", "/routines", "/data", "/health", "/watch", "/plan", "/session"];
+const OPTIONAL_SHELL = ["/gym", "/history", "/progress", "/bodyweight", "/prs", "/routines", "/data", "/health", "/watch", "/plan", "/session", "/coach"];
 async function putInCache(request, response) { if (!response || !response.ok) return; const cache = await caches.open(CACHE); await cache.put(request, response); }
 self.addEventListener("install", (event) => { event.waitUntil((async () => { const cache = await caches.open(CACHE); await cache.addAll(CORE_SHELL); await Promise.allSettled(OPTIONAL_SHELL.map((path) => cache.add(path))); await self.skipWaiting(); })()); });
 self.addEventListener("activate", (event) => { event.waitUntil((async () => { const keys = await caches.keys(); await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))); await self.clients.claim(); })()); });

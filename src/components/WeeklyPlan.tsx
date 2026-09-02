@@ -66,11 +66,11 @@ export default function WeeklyPlan() {
     <main className="wp-shell">
       <header className="wp-topbar">
         <div>
-          <p className="ti-eyebrow">WEEKLY PLAN · V1.6</p>
+          <p className="ti-eyebrow">WEEKLY PLAN · V1.7</p>
           <h1>Hybrid Week</h1>
           <p>Plan the week, then launch the correct logger straight from each day.</p>
         </div>
-        <a className="ti-secondary" href="/">Today</a>
+        <div className="ac-top-actions"><a className="ti-secondary" href="/coach">Adaptive coach</a><a className="ti-secondary" href="/">Today</a></div>
       </header>
 
       <section className="wp-summary">
@@ -117,7 +117,7 @@ export default function WeeklyPlan() {
 
       <footer className="wp-footer">
         <button type="button" onClick={reset}>Reset starter week</button>
-        <a href="/history">All training history →</a>
+        <div className="ac-top-actions"><a href="/coach">Weekly intelligence →</a><a href="/history">All training history →</a></div>
       </footer>
     </main>
   );
