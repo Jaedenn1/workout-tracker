@@ -1,0 +1,64 @@
+/* v1.9.5 — iOS/PWA bottom dock stability */
+
+/*
+ * Keep the primary dock in the viewport coordinate space.
+ * iOS WebKit can re-anchor fixed elements during momentum scroll when the
+ * element itself is transformed and backdrop-filtered. Avoid both here.
+ */
+.v11-bottom-nav {
+  position: fixed !important;
+  z-index: 1000 !important;
+  top: auto !important;
+  bottom: calc(7px + env(safe-area-inset-bottom)) !important;
+  left: max(7px, env(safe-area-inset-left)) !important;
+  right: max(7px, env(safe-area-inset-right)) !important;
+  width: auto !important;
+  max-width: 560px !important;
+  margin: 0 auto !important;
+  transform: none !important;
+  -webkit-transform: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(12, 12, 14, .985) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.48) !important;
+  isolation: isolate !important;
+  contain: layout paint !important;
+  will-change: auto !important;
+}
+
+/* Never let page content finish beneath the viewport-fixed dock. */
+body {
+  padding-bottom: calc(104px + env(safe-area-inset-bottom)) !important;
+}
+
+.ti-shell,
+.ti-home-v192,
+.gym-shell,
+.live-shell,
+.v11-home {
+  padding-bottom: calc(124px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Keep the More sheet above the page but below the dock. */
+.v11-more-backdrop {
+  z-index: 990 !important;
+}
+
+/* Explicit iOS standalone fallback: no transformed/composited dock. */
+@supports (-webkit-touch-callout: none) {
+  .v11-bottom-nav {
+    position: fixed !important;
+    transform: none !important;
+    -webkit-transform: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .v11-bottom-nav {
+    left: max(7px, env(safe-area-inset-left)) !important;
+    right: max(7px, env(safe-area-inset-right)) !important;
+    bottom: calc(7px + env(safe-area-inset-bottom)) !important;
+  }
+}
