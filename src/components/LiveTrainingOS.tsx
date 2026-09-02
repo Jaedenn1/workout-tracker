@@ -626,12 +626,12 @@ export default function LiveTrainingOS() {
 
   if (!hydrated) return <main className="live-shell"><p className="live-loading">Loading Live Training OS…</p></main>;
 
-  if (kind === "rest" && !startedAt) return <main className="live-shell"><header className="live-topbar"><div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.2</p><h1>Recovery day</h1><p>The weekly plan marks today as rest. There is no training dose to chase.</p></div><a className="ti-secondary" href="/">Today</a></header><section className="live-card"><h2>Protect the recovery slot</h2><p>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p><div className="live-actions"><a className="ti-primary" href="/plan">Edit weekly plan</a><a className="ti-secondary" href="/live?kind=recovery&title=Recovery">Start recovery session</a></div></section></main>;
+  if (kind === "rest" && !startedAt) return <main className="live-shell"><header className="live-topbar"><div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.3</p><h1>Recovery day</h1><p>The weekly plan marks today as rest. There is no training dose to chase.</p></div><a className="ti-secondary" href="/">Today</a></header><section className="live-card"><h2>Protect the recovery slot</h2><p>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p><div className="live-actions"><a className="ti-primary" href="/plan">Edit weekly plan</a><a className="ti-secondary" href="/live?kind=recovery&title=Recovery">Start recovery session</a></div></section></main>;
 
   return (
     <main className={`live-shell ${startedAt ? "is-live" : ""} ${pausedAt ? "is-paused" : ""}`}>
       <header className="live-topbar">
-        <div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.2</p><h1>{title}</h1><p>{startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}</p></div>
+        <div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.3</p><h1>{title}</h1><p>{startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}</p></div>
         <div className="live-top-actions"><a className="ti-secondary" href="/coach">Coach</a><a className="ti-secondary" href="/">Today</a></div>
       </header>
 
