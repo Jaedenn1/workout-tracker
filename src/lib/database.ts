@@ -56,7 +56,7 @@ export type BackupEnvelope = {
   format: "workout-tracker-backup";
   version: 1;
   schemaVersion: 1;
-  appVersion: "1.7.0";
+  appVersion: "1.7.2";
   exportedAt: string;
   data: Record<string, string>;
 };
@@ -264,7 +264,7 @@ export async function exportBackup(): Promise<BackupEnvelope> {
     format: "workout-tracker-backup",
     version: 1,
     schemaVersion: 1,
-    appVersion: "1.7.0",
+    appVersion: "1.7.2",
     exportedAt: new Date().toISOString(),
     data,
   };
