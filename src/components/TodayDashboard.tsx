@@ -56,7 +56,7 @@ function activeDraft(draft?: Draft) {
 }
 
 function readinessLabel(record: ReadinessRecord | null) {
-  if (!record) return "Add a 10-second readiness check before training.";
+  if (!record) return "Not checked yet";
   return `${record.sleep} sleep · ${record.energy} energy · ${record.soreness} soreness`;
 }
 
@@ -132,33 +132,38 @@ export default function TodayDashboard() {
   }
 
   return (
-    <main className="ti-shell ti-home">
-      <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.9.1</p><h1>Training Console</h1></div>
-        <div className="ti-top-actions"><a className="ti-icon-link" href="/live">Live OS</a><a className="ti-icon-link" href="/coach">Coach</a><a className="ti-icon-link" href="/plan">Weekly plan</a></div>
+    <main className="ti-shell ti-home ti-home-v192">
+      <header className="ti-topbar ti-topbar-clean">
+        <div><p className="ti-eyebrow">TODAY · V1.9.2</p><h1>Training Console</h1></div>
+        <a className="ti-clean-link" href="/history">History</a>
       </header>
 
-      <section className="ti-today-hero">
+      <section className="ti-today-hero ti-today-hero-clean">
         <div className="ti-hero-copy">
-          <p className="ti-eyebrow">TODAY'S PLAN · {todayPlan.kind.toUpperCase()}</p>
+          <p className="ti-eyebrow">TODAY · {todayPlan.kind.toUpperCase()}</p>
           <h2>{todayPlan.title}</h2>
-          <p>{todayPlan.detail || "No extra goal set."}{todayPlan.kind === "lift" ? ` · ${activeRoutine.name} ready` : ""}</p>
+          <p>{todayPlan.detail || "No extra goal set."}{todayPlan.kind === "lift" ? ` · ${activeRoutine.name}` : ""}</p>
           <div className="ti-hero-actions">
             <a className="ti-primary" href={todayPlanAction.href}>{todayPlan.kind === "lift" && draftRunning ? "Resume workout" : todayPlanAction.label}</a>
-            <a className="ti-secondary" href="/plan">Edit this week</a>
+            <a className="ti-secondary" href="/plan">Adjust plan</a>
           </div>
         </div>
-        <div className="ti-hero-stat">
-          <span>{todayPlan.kind === "lift" ? `Last ${activeRoutine.name}` : "Hybrid tracking"}</span>
-          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "No session yet") : "Logger ready"}</strong>
-          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · about ${plannedSets} working sets${progressionReady ? ` · ${progressionReady} ready to progress` : ""}`) : "Run, conditioning, pool, and recovery sessions now save to hybrid history."}</small>
+        <div className="ti-hero-stat ti-hero-stat-clean">
+          <span>{todayPlan.kind === "lift" ? "LAST COMPARABLE" : "SESSION"}</span>
+          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "First session") : "Ready"}</strong>
+          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · ~${plannedSets} sets${progressionReady ? ` · ${progressionReady} progressions` : ""}`) : "Live tracking will save directly to training history."}</small>
         </div>
       </section>
 
-      <a className="ti-coach-strip" href="/coach"><span>Adaptive coach · {adaptiveWeek.todayRecommendation.signal}</span><strong>{adaptiveWeek.todayRecommendation.label}</strong><small>{adaptiveWeek.todayRecommendation.reason}</small></a>
+      <a className="ti-coach-strip ti-coach-strip-clean" href="/coach">
+        <span>COACH · {adaptiveWeek.todayRecommendation.signal.toUpperCase()}</span>
+        <strong>{adaptiveWeek.todayRecommendation.label}</strong>
+        <small>{adaptiveWeek.todayRecommendation.reason}</small>
+        <b>›</b>
+      </a>
 
-      <section className="ti-readiness-card">
-        <div className="ti-section-head"><div><p className="ti-eyebrow">READINESS</p><h2>How are you today?</h2></div><span>{readinessLabel(todayReadiness)}</span></div>
+      <section className="ti-readiness-card ti-readiness-clean">
+        <div className="ti-section-head"><div><p className="ti-eyebrow">READINESS</p><h2>Quick check</h2></div><span>{readinessLabel(todayReadiness)}</span></div>
         <div className="ti-readiness-grid">
           <div><strong>Sleep</strong><div className="ti-segments">{(["poor", "ok", "good"] as const).map((value) => <button key={value} className={todayReadiness?.sleep === value ? "active" : ""} onClick={() => setReadinessField("sleep", value)}>{value}</button>)}</div></div>
           <div><strong>Energy</strong><div className="ti-segments">{(["low", "normal", "high"] as const).map((value) => <button key={value} className={todayReadiness?.energy === value ? "active" : ""} onClick={() => setReadinessField("energy", value)}>{value}</button>)}</div></div>
@@ -166,19 +171,14 @@ export default function TodayDashboard() {
         </div>
       </section>
 
-      <section className="ti-home-grid">
-        <a className="ti-card ti-click-card" href="/live"><span>Live Training OS</span><strong>Run today with the coach</strong><small>Real-time dose, fatigue & execution →</small></a>
-        <a className="ti-card ti-click-card" href="/coach"><span>Adaptive coach</span><strong>{adaptiveWeek.todayRecommendation.label}</strong><small>{adaptiveWeek.completionRate == null ? "Week intelligence ready" : `${adaptiveWeek.completionRate}% plan-to-date`} →</small></a>
-        <a className="ti-card ti-click-card" href="/plan"><span>Weekly plan</span><strong>{todayPlan.title}</strong><small>{todayPlan.shortDay} · {todayPlan.kind} →</small></a>
-        <a className="ti-card ti-click-card" href="/session"><span>Hybrid logger</span><strong>Run · Condition · Recover</strong><small>Track non-lifting work →</small></a>
-        <a className="ti-card ti-click-card" href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Log a baseline"}</strong><small>{firstTarget?.label ?? "Progression will appear after a session"} →</small></a>
-        <a className="ti-card ti-click-card" href="/bodyweight"><span>Bodyweight</span><strong>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</strong><small>View and edit entries →</small></a>
-        <a className="ti-card ti-click-card" href="/prs"><span>Latest PR</span><strong>{latestPr?.pr ?? "No PR yet"}</strong><small>{latestPr ? formatShortDate(latestPr.completedAt) : "Your record board is ready"} →</small></a>
-        <a className="ti-card ti-click-card" href="/history"><span>Training history</span><strong>{history[0]?.name ?? "Open journal"}</strong><small>Lifting + hybrid sessions →</small></a>
-      </section>
-
-      <section className="ti-quick-row">
-        <a href="/live">◉ Live OS</a><a href="/gym">⚡ Gym</a><a href="/session">◎ Quick log</a><a href="/coach">◈ Coach</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
+      <section className="ti-overview-section">
+        <div className="ti-section-head"><div><p className="ti-eyebrow">OVERVIEW</p><h2>Your training</h2></div><a className="ti-clean-link" href="/progress">View progress</a></div>
+        <div className="ti-overview-grid">
+          <a href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Build baseline"}</strong><small>{firstTarget?.label ?? "Progression appears after logging"}</small></a>
+          <a href="/bodyweight"><span>Bodyweight</span><strong>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</strong><small>View and edit</small></a>
+          <a href="/prs"><span>Latest PR</span><strong>{latestPr?.pr ?? "No PR yet"}</strong><small>{latestPr ? formatShortDate(latestPr.completedAt) : "Record board ready"}</small></a>
+          <a href="/history"><span>Last session</span><strong>{history[0]?.name ?? "No sessions yet"}</strong><small>{history[0] ? formatShortDate(history[0].completedAt) : "Open training history"}</small></a>
+        </div>
       </section>
     </main>
   );
