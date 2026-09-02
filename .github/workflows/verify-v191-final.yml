@@ -49,13 +49,13 @@ jobs:
           grep -q -- '--moduleResolution node16' package.json
           grep -q 'Live Training reliability checks' .github/workflows/web.yml
           git diff --check
-      - name: Commit verified clean release
+      - name: Commit verified application source
         run: |
           git config user.name "Jaedenn1"
           git config user.email "Jaedennm@gmail.com"
-          git add app src public package.json package-lock.json scripts/live-reliability.test.cjs .github/workflows/web.yml
-          git rm -f scripts/v191.patch.gz.b64 .github/workflows/release-v191.yml
-          git rm -rf scripts/v191-final .github/workflows/verify-v191-final.yml
+          git add app src public package.json package-lock.json scripts/live-reliability.test.cjs
+          git rm -f scripts/v191.patch.gz.b64
+          git rm -rf scripts/v191-final
           git commit -m "Release v1.9.1 Live Training reliability"
           git push origin HEAD:release/v1.9.1-reliability-final
-# rerun with regression file present
+# workflow files are finalized separately through the connected GitHub API
