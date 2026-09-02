@@ -1,0 +1,41 @@
+name: Release v1.7.2 Calibrated Coach
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/apply_v172.py"
+      - ".github/workflows/release-v172.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply v1.7.2 calibration and precision patch
+        run: python3 scripts/apply_v172.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Diff sanity check
+        run: git diff --check
+      - name: Commit verified v1.7.2
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add src/lib/weeklyPlan.ts src/lib/adaptiveTraining.ts src/components/WeeklyPlan.tsx src/components/AdaptiveCoach.tsx app/v22.css app/layout.tsx public/sw.js package.json package-lock.json src/lib/database.ts
+          git rm .github/workflows/release-v172.yml scripts/apply_v172.py
+          git commit -m "Release v1.7.2 calibrated adaptive coach"
+          git push
