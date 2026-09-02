@@ -27,6 +27,7 @@ jobs:
           echo "5aeeb97f6186b1df74f9aeeca0d20877ac7a1759ff134d449ba821f6c17cff6c  /tmp/v191-final.patch" | sha256sum -c -
           git apply --check /tmp/v191-final.patch
           git apply /tmp/v191-final.patch
+          sed -i 's/tsc --rootDir src/tsc --ignoreConfig --rootDir src/' package.json
       - name: Install locked dependencies
         run: npm ci
       - name: Check service worker syntax
@@ -43,6 +44,7 @@ jobs:
           grep -q 'workout-tracker-v1.9.1-live-reliability' public/sw.js
           grep -q 'LIVE TRAINING OS · V1.9.1' src/components/LiveTrainingOS.tsx
           grep -q 'test:live' package.json
+          grep -q -- '--ignoreConfig' package.json
           grep -q 'Live Training reliability checks' .github/workflows/web.yml
           git diff --check
       - name: Commit verified clean release
