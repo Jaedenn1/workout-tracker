@@ -1,0 +1,41 @@
+name: Release v1.6.1 Stability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/apply_v161.py"
+      - ".github/workflows/release-v161.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply v1.6.1 stability patch
+        run: python3 scripts/apply_v161.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Diff sanity check
+        run: git diff --check
+      - name: Commit verified v1.6.1
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add src/lib/database.ts src/lib/hybridSessions.ts src/components/HybridSessionLogger.tsx src/components/HybridHistory.tsx public/sw.js package.json package-lock.json
+          git rm .github/workflows/release-v161.yml scripts/apply_v161.py
+          git commit -m "Release v1.6.1 stability fixes"
+          git push
