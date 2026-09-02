@@ -15,6 +15,13 @@ import {
   type ReadinessRecord,
   type WorkoutHistoryItem,
 } from "../lib/trainingIntelligence";
+import {
+  WEEKLY_PLAN_KEY,
+  defaultWeeklyPlan,
+  normalizeWeeklyPlan,
+  todayPlanIndex,
+  type WeeklyPlanDay,
+} from "../lib/weeklyPlan";
 
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
@@ -31,6 +38,14 @@ function readRoutines() {
   }
 }
 
+function readWeeklyPlan() {
+  try {
+    return normalizeWeeklyPlan(JSON.parse(localStorage.getItem(WEEKLY_PLAN_KEY) ?? "null"));
+  } catch {
+    return defaultWeeklyPlan;
+  }
+}
+
 function activeDraft(draft?: Draft) {
   if (!draft?.sessionActive || !draft.startedAt) return false;
   const started = new Date(draft.startedAt).getTime();
@@ -43,6 +58,11 @@ function readinessLabel(record: ReadinessRecord | null) {
   return `${record.sleep} sleep · ${record.energy} energy · ${record.soreness} soreness`;
 }
 
+function planAction(item: WeeklyPlanDay) {
+  if (item.kind === "lift") return { href: "/gym", label: "Open gym logger" };
+  return { href: "/plan", label: "Open weekly plan" };
+}
+
 export default function TodayDashboard() {
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [routines, setRoutines] = useState<RoutineDefinition[]>(defaultRoutines);
@@ -50,6 +70,7 @@ export default function TodayDashboard() {
   const [draftRunning, setDraftRunning] = useState(false);
   const [bodyweight, setBodyweight] = useState<BodyweightEntry[]>([]);
   const [readiness, setReadiness] = useState<ReadinessRecord[]>([]);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanDay[]>(defaultWeeklyPlan);
   const today = localDay(new Date());
 
   useEffect(() => {
@@ -65,11 +86,18 @@ export default function TodayDashboard() {
     setDraftRunning(activeDraft(drafts[active]));
     setBodyweight(safeArray<BodyweightEntry>(localStorage.getItem(BODYWEIGHT_KEY)));
     setReadiness(safeArray<ReadinessRecord>(localStorage.getItem(READINESS_KEY)));
+    setWeeklyPlan(readWeeklyPlan());
+
+    const onPlanChange = () => setWeeklyPlan(readWeeklyPlan());
+    window.addEventListener("workout-tracker:weekly-plan", onPlanChange);
+    return () => window.removeEventListener("workout-tracker:weekly-plan", onPlanChange);
   }, []);
 
   const activeRoutine = routines.find((routine) => routine.id === activeRoutineId) ?? routines[0] ?? defaultRoutines[0];
   const latestWeight = [...bodyweight].sort((a, b) => String(b.recordedAt).localeCompare(String(a.recordedAt)))[0];
   const todayReadiness = readiness.find((item) => item.date === today) ?? null;
+  const todayPlan = weeklyPlan[todayPlanIndex()] ?? defaultWeeklyPlan[todayPlanIndex()];
+  const todayPlanAction = planAction(todayPlan);
   const summaries = useMemo(() => allExerciseSummaries(history), [history]);
   const summaryMap = useMemo(() => new Map(summaries.map((item) => [item.id, item])), [summaries]);
   const progressionReady = activeRoutine.exerciseIds.filter((id) => summaryMap.get(id)?.progression?.action === "increase").length;
@@ -95,24 +123,24 @@ export default function TodayDashboard() {
   return (
     <main className="ti-shell ti-home">
       <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.4</p><h1>Training Console</h1></div>
-        <a className="ti-icon-link" href="/routines">Routines</a>
+        <div><p className="ti-eyebrow">TODAY · V1.5</p><h1>Training Console</h1></div>
+        <a className="ti-icon-link" href="/plan">Weekly plan</a>
       </header>
 
       <section className="ti-today-hero">
         <div className="ti-hero-copy">
-          <p className="ti-eyebrow">TODAY'S WORKOUT</p>
-          <h2>{activeRoutine.name}</h2>
-          <p>{activeRoutine.exerciseIds.length} exercises · about {plannedSets} working sets{progressionReady ? ` · ${progressionReady} ready to progress` : ""}</p>
+          <p className="ti-eyebrow">TODAY'S PLAN · {todayPlan.kind.toUpperCase()}</p>
+          <h2>{todayPlan.title}</h2>
+          <p>{todayPlan.detail || "No extra goal set."}{todayPlan.kind === "lift" ? ` · ${activeRoutine.name} ready` : ""}</p>
           <div className="ti-hero-actions">
-            <a className="ti-primary" href="/gym">{draftRunning ? "Resume workout" : "Start workout"}</a>
-            <a className="ti-secondary" href="/progress">View targets</a>
+            <a className="ti-primary" href={todayPlanAction.href}>{todayPlan.kind === "lift" && draftRunning ? "Resume workout" : todayPlanAction.label}</a>
+            <a className="ti-secondary" href="/plan">Edit this week</a>
           </div>
         </div>
         <div className="ti-hero-stat">
-          <span>Last {activeRoutine.name}</span>
-          <strong>{lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "No session yet"}</strong>
-          <small>{lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : "Build your baseline today."}</small>
+          <span>{todayPlan.kind === "lift" ? `Last ${activeRoutine.name}` : "Strength plan"}</span>
+          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "No session yet") : `${activeRoutine.name} queued`}</strong>
+          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · about ${plannedSets} working sets${progressionReady ? ` · ${progressionReady} ready to progress` : ""}`) : "Your lifting logger stays ready even on non-lifting days."}</small>
         </div>
       </section>
 
@@ -126,6 +154,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-home-grid">
+        <a className="ti-card ti-click-card" href="/plan"><span>Weekly plan</span><strong>{todayPlan.title}</strong><small>{todayPlan.shortDay} · {todayPlan.kind} →</small></a>
         <a className="ti-card ti-click-card" href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Log a baseline"}</strong><small>{firstTarget?.label ?? "Progression will appear after a session"} →</small></a>
         <a className="ti-card ti-click-card" href="/bodyweight"><span>Bodyweight</span><strong>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</strong><small>View and edit entries →</small></a>
         <a className="ti-card ti-click-card" href="/prs"><span>Latest PR</span><strong>{latestPr?.pr ?? "No PR yet"}</strong><small>{latestPr ? formatShortDate(latestPr.completedAt) : "Your record board is ready"} →</small></a>
@@ -133,7 +162,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-quick-row">
-        <a href="/gym">⚡ Gym</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
+        <a href="/gym">⚡ Gym</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
       </section>
     </main>
   );
