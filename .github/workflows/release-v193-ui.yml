@@ -1,0 +1,51 @@
+name: Release v1.9.3 Gym UI Cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-v193-ui.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Finalize v1.9.3 metadata
+        run: |
+          npm version 1.9.3 --no-git-tag-version
+          sed -i 's/workout-tracker-v1.9.2-ui-polish/workout-tracker-v1.9.3-gym-ui-cleanup/' public/sw.js
+          sed -i 's/TODAY · V1.9.2/TODAY · V1.9.3/g' src/components/TodayDashboard.tsx
+          sed -i 's/LIVE TRAINING OS · V1.9.2/LIVE TRAINING OS · V1.9.3/g' src/components/LiveTrainingOS.tsx
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Live Training reliability checks
+        run: npm run test:live
+      - name: Production build
+        run: npm run build
+      - name: UI release sanity
+        run: |
+          test "$(node -p "require('./package.json').version")" = "1.9.3"
+          grep -q 'workout-tracker-v1.9.3-gym-ui-cleanup' public/sw.js
+          grep -q 'v26.css' app/layout.tsx
+          grep -q 'transform:none!important' app/v26.css
+          grep -q 'flow-history-dropdown{display:none!important}' app/v26.css
+          git diff --check
+      - name: Commit verified v1.9.3 metadata
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add package.json package-lock.json public/sw.js src/components/TodayDashboard.tsx src/components/LiveTrainingOS.tsx
+          git commit -m "Release v1.9.3 Gym UI cleanup"
+          git push
