@@ -1,0 +1,39 @@
+name: Release v1.4 Workout Flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/apply_v14.py"
+      - ".github/workflows/release-v14.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply v1.4 patch
+        run: python3 scripts/apply_v14.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Commit verified v1.4
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add src/lib/workoutFlow.ts src/components/FirstWorkoutGymLogger.tsx src/components/TodayDashboard.tsx app/v19.css app/layout.tsx package.json package-lock.json public/sw.js
+          git rm .github/workflows/release-v14.yml scripts/apply_v14.py
+          git commit -m "Release v1.4 Workout Flow"
+          git push
