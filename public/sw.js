@@ -1,4 +1,4 @@
-const CACHE = "workout-tracker-v1.3-training-intelligence";
+const CACHE = "workout-tracker-v1.4-workout-flow";
 const CORE_SHELL = ["/", "/offline", "/icon.svg"];
 const OPTIONAL_SHELL = ["/gym", "/history", "/progress", "/bodyweight", "/prs", "/routines", "/data", "/health", "/watch"];
 async function putInCache(request, response) { if (!response || !response.ok) return; const cache = await caches.open(CACHE); await cache.put(request, response); }

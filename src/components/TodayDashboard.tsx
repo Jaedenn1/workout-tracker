@@ -95,7 +95,7 @@ export default function TodayDashboard() {
   return (
     <main className="ti-shell ti-home">
       <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.3</p><h1>Training Console</h1></div>
+        <div><p className="ti-eyebrow">TODAY · V1.4</p><h1>Training Console</h1></div>
         <a className="ti-icon-link" href="/routines">Routines</a>
       </header>
 

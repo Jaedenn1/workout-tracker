@@ -16,6 +16,17 @@ import {
   type PerformanceSet,
   type ProgressionAction,
 } from "../lib/progression";
+import { READINESS_KEY, safeArray, type ReadinessRecord } from "../lib/trainingIntelligence";
+import {
+  beatLastTimeTarget,
+  completedWorkoutComparison,
+  liveMatchedDelta,
+  nextSetCue,
+  previousWorkoutForRoutine,
+  readinessForToday,
+  readinessGuidance,
+  recentExerciseHistory,
+} from "../lib/workoutFlow";
 
 type SetType = "working" | "warmup" | "backoff" | "drop" | "failure";
 type Panel = "exercise" | "custom" | "plate" | "warmup" | null;
@@ -114,6 +125,7 @@ type WorkoutSummary = {
   duration: number;
   prs: string[];
   nextTarget?: string;
+  comparison?: string[];
 };
 
 type WakeSentinel = { release(): Promise<void> };
@@ -416,6 +428,7 @@ export default function FirstWorkoutGymLogger() {
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const [draggingExercise, setDraggingExercise] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<WorkoutSummary | null>(null);
+  const [todayReadiness, setTodayReadiness] = useState<ReadinessRecord | null>(null);
   const [plateTarget, setPlateTarget] = useState(225);
   const [barWeight, setBarWeight] = useState(45);
   const [warmupWeight, setWarmupWeight] = useState(225);
@@ -469,6 +482,7 @@ export default function FirstWorkoutGymLogger() {
     setExtras(parsedExtras);
     setActiveRoutineId(target.id);
     setRestSound(localStorage.getItem(REST_SOUND_KEY) === "1");
+    setTodayReadiness(readinessForToday(safeArray<ReadinessRecord>(localStorage.getItem(READINESS_KEY))));
 
     let loaded: GymExercise[];
     if (draft?.exercises?.length) {
@@ -641,6 +655,16 @@ export default function FirstWorkoutGymLogger() {
     };
   }, [exercises]);
 
+  const previousRoutineWorkout = useMemo(
+    () => previousWorkoutForRoutine(history, activeRoutine.id, activeRoutine.name),
+    [history, activeRoutine.id, activeRoutine.name],
+  );
+  const liveDelta = useMemo(
+    () => liveMatchedDelta(exercises, previousRoutineWorkout),
+    [exercises, previousRoutineWorkout],
+  );
+  const readinessNote = useMemo(() => readinessGuidance(todayReadiness), [todayReadiness]);
+
   const filteredDefinitions = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return allDefinitions;
@@ -786,7 +810,6 @@ export default function FirstWorkoutGymLogger() {
   }
 
   function copyPrevious(exerciseId: string, setId: string, index: number) {
-    ensureSessionStarted();
     setExercises((current) =>
       current.map((exercise) => {
         if (exercise.id !== exerciseId) return exercise;
@@ -800,6 +823,32 @@ export default function FirstWorkoutGymLogger() {
         };
       }),
     );
+  }
+
+  function useAllPrevious(exerciseId: string) {
+    const target = exercises.find((exercise) => exercise.id === exerciseId);
+    if (!target?.previous.length) {
+      setNotice("No previous performance is available for this exercise yet.");
+      return;
+    }
+    snapshotUndo("Used previous exercise values");
+    setExercises((current) =>
+      current.map((exercise) =>
+        exercise.id !== exerciseId
+          ? exercise
+          : {
+              ...exercise,
+              sets: exercise.sets.map((set, index) => {
+                if (set.completed) return set;
+                const previous = exercise.previous[index];
+                if (!previous) return set;
+                return { ...set, weight: previous.weight, reps: previous.reps, rir: previous.rir ?? null };
+              }),
+            },
+      ),
+    );
+    setCollapsed((current) => ({ ...current, [exerciseId]: false }));
+    setNotice(`Loaded last session values for ${target.name}. Timer stays at 0:00 until you actually start/log a set.`);
   }
 
   function focusNextSet(exerciseId: string, setId: string) {
@@ -1071,6 +1120,7 @@ export default function FirstWorkoutGymLogger() {
   }
 
   function finishWorkout() {
+    const previousRoutine = previousWorkoutForRoutine(history, activeRoutine.id, activeRoutine.name);
     const working = exercises.flatMap((exercise) => workingPerformance(exercise.sets));
     if (!working.length) {
       setNotice("Complete at least one working set before finishing.");
@@ -1144,6 +1194,7 @@ export default function FirstWorkoutGymLogger() {
       duration: item.durationSeconds,
       prs,
       nextTarget: nextExercises[0]?.recommendation,
+      comparison: completedWorkoutComparison(item, previousRoutine),
     });
     setHistory(nextHistory);
     setExercises(nextExercises);
@@ -1239,6 +1290,29 @@ export default function FirstWorkoutGymLogger() {
         </div>
       </section>
 
+      {readinessNote && readinessNote.tone !== "good" && (
+        <section className={`flow-readiness flow-${readinessNote.tone}`}>
+          <div><span>READINESS</span><strong>{readinessNote.title}</strong></div>
+          <p>{readinessNote.message}</p>
+        </section>
+      )}
+
+      {previousRoutineWorkout && (
+        <section className="flow-live-compare">
+          <div>
+            <span>LIVE VS LAST {activeRoutine.name.toUpperCase()}</span>
+            <strong>{liveDelta ? `${liveDelta.matchedSets} matched sets` : "Waiting for your first completed set"}</strong>
+          </div>
+          {liveDelta ? (
+            <div className="flow-live-metrics">
+              <span><b>{liveDelta.repDelta >= 0 ? "+" : ""}{liveDelta.repDelta}</b> reps</span>
+              <span><b>{liveDelta.volumeDelta >= 0 ? "+" : ""}{Math.round(liveDelta.volumeDelta).toLocaleString()}</b> lb</span>
+              <span><b>{liveDelta.e1rmDelta == null ? "—" : `${liveDelta.e1rmDelta >= 0 ? "+" : ""}${Math.round(liveDelta.e1rmDelta)}`}</b> e1RM</span>
+            </div>
+          ) : <small>Comparison activates as working sets are completed.</small>}
+        </section>
+      )}
+
       <section className={`gym-rest-strip ${restRemaining ? "active" : ""} ${pausedAt ? "paused" : ""}`}>
         <div>
           <span>{restRemaining ? (pausedAt ? "REST PAUSED" : "REST") : "REST TIMER"}</span>
@@ -1307,6 +1381,9 @@ export default function FirstWorkoutGymLogger() {
           const persistentExtra = (extras[activeRoutine.id] ?? []).includes(exercise.id);
           const completedCount = exercise.sets.filter((set) => set.completed).length;
           const isCollapsed = Boolean(collapsed[exercise.id]);
+          const beatTarget = beatLastTimeTarget(exercise);
+          const nextCue = nextSetCue(exercise);
+          const recentSessions = recentExerciseHistory(history, exercise.id, 3);
 
           return (
             <article
@@ -1342,7 +1419,39 @@ export default function FirstWorkoutGymLogger() {
                     <span>{actionLabel(exercise.progressionAction)}</span>
                   </div>
 
-                  <div className="gym-target"><strong>{exercise.recommendation}</strong><span>Previous workout: {exercise.previous.length ? exercise.previous.map(previousLabel).join(" · ") : "none"}</span></div>
+                  <div className="flow-progression-card">
+                    <span>{actionLabel(exercise.progressionAction)}</span>
+                    <strong>{exercise.recommendation}</strong>
+                  </div>
+
+                  <div className="flow-beat-card">
+                    <div>
+                      <span>BEAT LAST TIME</span>
+                      <strong>{beatTarget.label}</strong>
+                      <small>{beatTarget.detail}</small>
+                    </div>
+                    <button onClick={() => useAllPrevious(exercise.id)} disabled={!exercise.previous.length}>Use all previous</button>
+                  </div>
+
+                  {nextCue && (
+                    <div className="flow-next-cue">
+                      <span>NEXT · SET {nextCue.setNumber}</span>
+                      <strong>{nextCue.target}</strong>
+                      <small>Previous: {nextCue.previous} · aim for honest RIR, not forced reps.</small>
+                    </div>
+                  )}
+
+                  <details className="flow-history-dropdown">
+                    <summary>Last 3 sessions <span>{recentSessions.length ? `${recentSessions.length} logged` : "No history"}</span></summary>
+                    <div className="flow-history-list">
+                      {recentSessions.length ? recentSessions.map((row) => (
+                        <div className="flow-history-row" key={row.workoutId}>
+                          <span>{new Date(row.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                          <strong>{row.sets.map((set) => `${set.weight}×${set.reps}${set.rir == null ? "" : ` @${set.rir}`}`).join(" · ")}</strong>
+                        </div>
+                      )) : <p>No previous sessions for this exercise yet.</p>}
+                    </div>
+                  </details>
 
                   <details className="gym-options-dropdown">
                     <summary>Exercise options <span>rest · notes · substitute · reorder</span></summary>
@@ -1418,6 +1527,12 @@ export default function FirstWorkoutGymLogger() {
           <div className="gym-summary-grid"><div><span>Sets</span><strong>{lastSummary.sets}</strong></div><div><span>Volume</span><strong>{Math.round(lastSummary.volume).toLocaleString()} lb</strong></div><div><span>Time</span><strong>{formatDuration(lastSummary.duration)}</strong></div><div><span>PRs</span><strong>{lastSummary.prs.length}</strong></div></div>
           {lastSummary.prs.length > 0 && <p className="gym-summary-pr">🏆 {lastSummary.prs.join(" · ")}</p>}
           {lastSummary.nextTarget && <p className="gym-summary-next"><span>Next target</span><strong>{lastSummary.nextTarget}</strong></p>}
+          {lastSummary.comparison && lastSummary.comparison.length > 0 && (
+            <div className="flow-summary-compare">
+              <span>VS LAST MATCHING WORKOUT</span>
+              <div>{lastSummary.comparison.map((line) => <strong key={line}>{line}</strong>)}</div>
+            </div>
+          )}
         </section>
       )}
 
