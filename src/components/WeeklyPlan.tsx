@@ -17,9 +17,9 @@ function kindIcon(kind: TrainingKind) {
 }
 
 function sessionHref(item: WeeklyPlanDay) {
-  if (item.kind === "lift") return "/gym";
   if (item.kind === "rest") return null;
-  return `/session?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}`;
+  const routine = item.routineId ? `&routine=${encodeURIComponent(item.routineId)}` : "";
+  return `/live?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}${routine}`;
 }
 
 function readRoutines() {
@@ -59,8 +59,8 @@ export default function WeeklyPlan() {
   return (
     <main className="wp-shell">
       <header className="wp-topbar">
-        <div><p className="ti-eyebrow">WEEKLY PLAN · V1.7.2</p><h1>Hybrid Week</h1><p>Give each session a target dose. The coach compares the plan against what you actually complete.</p></div>
-        <div className="ac-top-actions"><a className="ti-secondary" href="/coach">Adaptive coach</a><a className="ti-secondary" href="/">Today</a></div>
+        <div><p className="ti-eyebrow">WEEKLY PLAN · V1.9</p><h1>Hybrid Week</h1><p>Give each session a target dose. The coach compares the plan against what you actually complete.</p></div>
+        <div className="ac-top-actions"><a className="ti-secondary" href="/live">Live Training OS</a><a className="ti-secondary" href="/coach">Adaptive coach</a><a className="ti-secondary" href="/">Today</a></div>
       </header>
 
       <section className="wp-summary">
@@ -81,7 +81,7 @@ export default function WeeklyPlan() {
               <label className="wp-field"><span>Target minutes</span><input type="number" inputMode="numeric" min="5" max="300" step="5" value={item.targetDurationMinutes ?? 45} onChange={(event) => update(index, { targetDurationMinutes: Math.max(5, Math.min(300, Number(event.target.value) || 45)) })} /></label>
               <label className="wp-field"><span>Target RPE</span><input type="number" inputMode="decimal" min="1" max="10" step="0.5" value={item.targetRpe ?? 7} onChange={(event) => update(index, { targetRpe: Math.max(1, Math.min(10, Number(event.target.value) || 7)) })} /></label>
             </div>}
-            {href && <a className="wp-action" href={href} onClick={() => { if (item.kind === "lift" && item.routineId) localStorage.setItem(ACTIVE_ROUTINE_KEY, item.routineId); }}>{item.kind === "lift" ? `Open ${routine?.name ?? "gym logger"}` : "Track this session"} →</a>}
+            {href && <a className="wp-action" href={href} onClick={() => { if (item.kind === "lift" && item.routineId) localStorage.setItem(ACTIVE_ROUTINE_KEY, item.routineId); }}>{item.kind === "lift" ? `Run ${routine?.name ?? "lifting session"} live` : "Run this session live"} →</a>}
             {item.kind === "rest" && <span className="wp-rest-label">Recovery day · no logger needed</span>}
           </article>;
         })}

@@ -61,9 +61,9 @@ function readinessLabel(record: ReadinessRecord | null) {
 }
 
 function planAction(item: WeeklyPlanDay) {
-  if (item.kind === "lift") return { href: "/gym", label: "Open gym logger" };
   if (item.kind === "rest") return { href: "/plan", label: "Recovery day" };
-  return { href: `/session?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}`, label: "Track session" };
+  const routine = item.routineId ? `&routine=${encodeURIComponent(item.routineId)}` : "";
+  return { href: `/live?kind=${encodeURIComponent(item.kind)}&title=${encodeURIComponent(item.title)}${routine}`, label: item.kind === "lift" ? "Start Live Training" : "Start live session" };
 }
 
 export default function TodayDashboard() {
@@ -134,8 +134,8 @@ export default function TodayDashboard() {
   return (
     <main className="ti-shell ti-home">
       <header className="ti-topbar">
-        <div><p className="ti-eyebrow">TODAY · V1.7</p><h1>Training Console</h1></div>
-        <div className="ti-top-actions"><a className="ti-icon-link" href="/coach">Coach</a><a className="ti-icon-link" href="/plan">Weekly plan</a></div>
+        <div><p className="ti-eyebrow">TODAY · V1.9</p><h1>Training Console</h1></div>
+        <div className="ti-top-actions"><a className="ti-icon-link" href="/live">Live OS</a><a className="ti-icon-link" href="/coach">Coach</a><a className="ti-icon-link" href="/plan">Weekly plan</a></div>
       </header>
 
       <section className="ti-today-hero">
@@ -167,6 +167,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-home-grid">
+        <a className="ti-card ti-click-card" href="/live"><span>Live Training OS</span><strong>Run today with the coach</strong><small>Real-time dose, fatigue & execution →</small></a>
         <a className="ti-card ti-click-card" href="/coach"><span>Adaptive coach</span><strong>{adaptiveWeek.todayRecommendation.label}</strong><small>{adaptiveWeek.completionRate == null ? "Week intelligence ready" : `${adaptiveWeek.completionRate}% plan-to-date`} →</small></a>
         <a className="ti-card ti-click-card" href="/plan"><span>Weekly plan</span><strong>{todayPlan.title}</strong><small>{todayPlan.shortDay} · {todayPlan.kind} →</small></a>
         <a className="ti-card ti-click-card" href="/session"><span>Hybrid logger</span><strong>Run · Condition · Recover</strong><small>Track non-lifting work →</small></a>
@@ -177,7 +178,7 @@ export default function TodayDashboard() {
       </section>
 
       <section className="ti-quick-row">
-        <a href="/gym">⚡ Gym</a><a href="/session">◎ Track</a><a href="/coach">◈ Coach</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
+        <a href="/live">◉ Live OS</a><a href="/gym">⚡ Gym</a><a href="/session">◎ Quick log</a><a href="/coach">◈ Coach</a><a href="/plan">▦ Week</a><a href="/progress">▥ Progress</a><a href="/routines">≡ Routines</a><a href="/prs">🏆 PRs</a>
       </section>
     </main>
   );

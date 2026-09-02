@@ -17,6 +17,7 @@ export const APP_DATA_KEYS = [
   "workout-tracker:v1.5:weekly-plan",
   "workout-tracker:v1.6:hybrid-history",
   "workout-tracker:v1.8:coach-feedback",
+  "workout-tracker:v1.9:live-session",
 ] as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[number];
@@ -57,7 +58,7 @@ export type BackupEnvelope = {
   format: "workout-tracker-backup";
   version: 1;
   schemaVersion: 1;
-  appVersion: "1.8.0";
+  appVersion: "1.9.0";
   exportedAt: string;
   data: Record<string, string>;
 };
@@ -265,7 +266,7 @@ export async function exportBackup(): Promise<BackupEnvelope> {
     format: "workout-tracker-backup",
     version: 1,
     schemaVersion: 1,
-    appVersion: "1.8.0",
+    appVersion: "1.9.0",
     exportedAt: new Date().toISOString(),
     data,
   };

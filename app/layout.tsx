@@ -23,7 +23,8 @@ import "./v20.css";
 import "./v21.css";
 import "./v22.css";
 import "./v23.css";
+import "./v24.css";
 
-export const metadata: Metadata = { title: "Workout Tracker", description: "Advanced hybrid training intelligence with 7/28-day load, modality stress, muscle fatigue, recovery debt, and adaptive coaching", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
+export const metadata: Metadata = { title: "Workout Tracker", description: "Live hybrid training OS with adaptive intelligence, real-time dose control, fatigue-aware coaching, and workout execution", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
 export const viewport: Viewport = { themeColor: "#080808" };
 export default function RootLayout({ children }: { children: ReactNode }) { return <html lang="en"><body><StorageGate>{children}<AppTools/><InteractionLayer/></StorageGate></body></html>; }
