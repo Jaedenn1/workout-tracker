@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createSafetySnapshot } from "../lib/database";
 import { HYBRID_HISTORY_KEY, kindLabel, pacePerKm, readHybridSessions, type HybridSession, type HybridSessionKind } from "../lib/hybridSessions";
 
 function formatDate(value: string) {
@@ -10,6 +11,8 @@ function formatDate(value: string) {
 export default function HybridHistory() {
   const [sessions, setSessions] = useState<HybridSession[]>([]);
   const [filter, setFilter] = useState<"all" | HybridSessionKind>("all");
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const refresh = () => setSessions(readHybridSessions());
@@ -22,10 +25,19 @@ export default function HybridHistory() {
   const totalMinutes = filtered.reduce((sum, item) => sum + Number(item.durationMinutes || 0), 0);
   const runKm = filtered.filter((item) => item.kind === "run").reduce((sum, item) => sum + Number(item.distanceKm || 0), 0);
 
-  function clearAll() {
-    if (!window.confirm("Clear all hybrid session history? Lifting history will not be touched.")) return;
-    localStorage.removeItem(HYBRID_HISTORY_KEY);
-    setSessions([]);
+  async function clearAll() {
+    if (!window.confirm("Clear all hybrid session history? A safety snapshot will be created first. Lifting history will not be touched.")) return;
+    setBusy(true);
+    try {
+      await createSafetySnapshot("Before clearing hybrid session history");
+      localStorage.removeItem(HYBRID_HISTORY_KEY);
+      setSessions([]);
+      setStatus("Hybrid history cleared. A safety snapshot was created first.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not clear hybrid history safely.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -35,6 +47,7 @@ export default function HybridHistory() {
       <div className="hh-filters">
         {(["all", "run", "conditioning", "pool", "recovery"] as const).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item === "all" ? "All" : kindLabel(item)}</button>)}
       </div>
+      {status && <div className="ti-status" role="status">{status}</div>}
       <div className="hh-list">
         {filtered.map((item) => {
           const pace = item.kind === "run" ? pacePerKm(item.distanceKm, item.durationMinutes) : null;
@@ -42,7 +55,7 @@ export default function HybridHistory() {
         })}
         {!filtered.length && <p className="ti-empty">No hybrid sessions logged yet.</p>}
       </div>
-      {sessions.length > 0 && <button className="hh-clear" onClick={clearAll}>Clear hybrid history</button>}
+      {sessions.length > 0 && <button className="hh-clear" disabled={busy} onClick={() => void clearAll()}>{busy ? "Creating snapshot…" : "Clear hybrid history"}</button>}
     </section>
   );
 }

@@ -18,6 +18,12 @@ export default function HybridSessionLogger() {
   const [effort, setEffort] = useState(5);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
+  const [sessionId] = useState(() => {
+    const token = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    return `hybrid-${token}`;
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -46,7 +52,7 @@ export default function HybridSessionLogger() {
       return;
     }
     saveHybridSession({
-      id: `hybrid-${Date.now()}`,
+      id: sessionId,
       kind,
       title: title.trim(),
       completedAt: new Date().toISOString(),
@@ -57,7 +63,7 @@ export default function HybridSessionLogger() {
       elevationFeet: kind === "conditioning" ? elevationFeet : null,
       laps: kind === "pool" ? laps : null,
     });
-    setStatus("Session saved to Hybrid History.");
+    setStatus("Session saved to Hybrid History. Saving again updates this session instead of duplicating it.");
   }
 
   return (
