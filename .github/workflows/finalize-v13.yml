@@ -1,0 +1,66 @@
+name: Finalize v1.3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/finalize_v13.py"
+      - ".github/workflows/finalize-v13.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply v1.3 final patch
+        run: python3 scripts/finalize_v13.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check service worker syntax
+        run: node --check public/sw.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate native project
+        working-directory: ios/WorkoutTrackerNative
+        run: xcodegen generate
+      - name: Build iPhone app + Live Activity
+        working-directory: ios/WorkoutTrackerNative
+        run: |
+          xcodebuild \
+            -project WorkoutTrackerNative.xcodeproj \
+            -scheme WorkoutTrackerNative \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Build Apple Watch app
+        working-directory: ios/WorkoutTrackerNative
+        run: |
+          xcodebuild \
+            -project WorkoutTrackerNative.xcodeproj \
+            -scheme WorkoutTrackerWatchApp \
+            -configuration Debug \
+            -sdk watchsimulator \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Commit verified v1.3
+        run: |
+          git config user.name "Jaedenn1"
+          git config user.email "Jaedennm@gmail.com"
+          git add package.json package-lock.json src/components/FirstWorkoutGymLogger.tsx ios/WorkoutTrackerNative/WorkoutTrackerWatchApp/WatchContentView.swift
+          git rm .github/workflows/finalize-v13.yml scripts/finalize_v13.py
+          git commit -m "Release v1.3 Training Intelligence"
+          git push
