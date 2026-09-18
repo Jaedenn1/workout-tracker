@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { buildAdaptiveWeek } from "../lib/adaptiveTraining";
 import { readHybridSessions, type HybridSession } from "../lib/hybridSessions";
-import { defaultRoutines, getExerciseDefinition, type RoutineDefinition } from "../data/training";
+import { defaultRoutines, ensureCurrentRoutineTemplates, getExerciseDefinition, type RoutineDefinition } from "../data/training";
 import {
   BODYWEIGHT_KEY,
   HISTORY_KEY,
@@ -34,7 +34,7 @@ type Draft = { startedAt?: string | null; sessionActive?: boolean };
 function readRoutines() {
   try {
     const parsed = JSON.parse(localStorage.getItem(ROUTINES_KEY) ?? "null");
-    return Array.isArray(parsed) && parsed.length ? (parsed as RoutineDefinition[]) : defaultRoutines;
+    return ensureCurrentRoutineTemplates(Array.isArray(parsed) && parsed.length ? (parsed as RoutineDefinition[]) : defaultRoutines);
   } catch {
     return defaultRoutines;
   }
@@ -112,7 +112,7 @@ export default function TodayDashboard() {
   const summaries = useMemo(() => allExerciseSummaries(history), [history]);
   const summaryMap = useMemo(() => new Map(summaries.map((item) => [item.id, item])), [summaries]);
   const progressionReady = activeRoutine.exerciseIds.filter((id) => summaryMap.get(id)?.progression?.action === "increase").length;
-  const plannedSets = activeRoutine.exerciseIds.reduce((sum, id) => sum + (getExerciseDefinition(id)?.setCount ?? 3), 0);
+  const plannedSets = activeRoutine.exerciseIds.reduce((sum, id) => sum + (activeRoutine.setCountOverrides?.[id] ?? getExerciseDefinition(id)?.setCount ?? 3), 0);
   const lastSameRoutine = history.find((workout) => workout.routineId === activeRoutine.id || workout.name === activeRoutine.name);
   const latestPr = history.flatMap((workout) => (workout.prs ?? []).map((pr) => ({ pr, completedAt: workout.completedAt })))[0];
   const firstTarget = activeRoutine.exerciseIds.map((id) => summaryMap.get(id)).find((item) => item?.progression)?.progression;
