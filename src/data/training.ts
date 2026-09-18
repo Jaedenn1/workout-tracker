@@ -28,7 +28,7 @@ export type ExerciseDefinition = {
   seedPrevious?: SeedSet[];
 };
 
-export type RoutineDefinition = { id: string; name: string; exerciseIds: string[] };
+export type RoutineDefinition = { id: string; name: string; exerciseIds: string[]; setCountOverrides?: Record<string, number> };
 
 const ex = (
   id: string,
@@ -202,11 +202,25 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   ex("behind-back-wrist-curl", "Behind-the-Back Wrist Curl", "Forearms", 12, 20, 2.5),
 ];
 
+export const BAREBONES_PUSH_ID = "barebones-push";
+
 export const defaultRoutines: RoutineDefinition[] = [
   {
     id: "push",
     name: "Push Day",
     exerciseIds: ["bench-press", "incline-db-press", "shoulder-press", "lateral-raise", "triceps-pressdown", "overhead-triceps-extension"],
+  },
+  {
+    id: BAREBONES_PUSH_ID,
+    name: "Barebones Push",
+    exerciseIds: ["incline-db-press", "shoulder-press", "lateral-raise", "reverse-pec-deck", "rope-pressdown"],
+    setCountOverrides: {
+      "incline-db-press": 2,
+      "shoulder-press": 2,
+      "lateral-raise": 2,
+      "reverse-pec-deck": 2,
+      "rope-pressdown": 2,
+    },
   },
   {
     id: "pull",
@@ -219,6 +233,13 @@ export const defaultRoutines: RoutineDefinition[] = [
     exerciseIds: ["leg-extension", "hack-squat", "smith-rdl", "bulgarian-split-squat", "hamstring-curl", "leg-press", "calf-raise"],
   },
 ];
+
+export function ensureCurrentRoutineTemplates(routines: RoutineDefinition[]) {
+  const base = routines.length ? routines : defaultRoutines;
+  const barebones = defaultRoutines.find((routine) => routine.id === BAREBONES_PUSH_ID);
+  if (!barebones || base.some((routine) => routine.id === BAREBONES_PUSH_ID)) return base;
+  return [...base, barebones];
+}
 
 export function getExerciseDefinition(id: string) {
   return exerciseLibrary.find((exercise) => exercise.id === id) ?? null;
