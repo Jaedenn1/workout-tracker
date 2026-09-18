@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultRoutines,
+  ensureCurrentRoutineTemplates,
   exerciseLibrary,
   type ExerciseDefinition,
   type MuscleGroup,
@@ -172,7 +173,9 @@ function makeExercise(
   history: HistoryItem[],
   notes: NotesMap,
   rests: RestMap,
+  setCountOverride?: number,
 ): GymExercise {
+  const setCount = setCountOverride ?? definition.setCount;
   const previous = latestSets(history, definition.id).length
     ? latestSets(history, definition.id)
     : definition.seedPrevious ?? [];
@@ -182,7 +185,7 @@ function makeExercise(
     definition.repMax,
     definition.increment,
     definition.fallbackWeight,
-    definition.setCount,
+    setCount,
   );
 
   return {
@@ -199,7 +202,7 @@ function makeExercise(
     progressionAction: decision.action,
     note: notes[definition.id] ?? "",
     restSeconds: rests[definition.id] ?? defaultRest(definition),
-    sets: Array.from({ length: definition.setCount }, (_, index) => ({
+    sets: Array.from({ length: setCount }, (_, index) => ({
       id: uid(`${definition.id}-${index + 1}`),
       weight: decision.suggestedWeights[index] ?? definition.fallbackWeight ?? null,
       reps: null,
@@ -254,7 +257,7 @@ function makeRoutine(
   return routineIds(routine, extras)
     .map((id) => definitionFor(id, custom))
     .filter((definition): definition is ExerciseDefinition => Boolean(definition))
-    .map((definition) => makeExercise(definition, history, notes, rests));
+    .map((definition) => makeExercise(definition, history, notes, rests, routine.setCountOverrides?.[definition.id]));
 }
 
 function formatDuration(totalSeconds: number) {
@@ -339,7 +342,9 @@ export default function GymLogger() {
 
   useEffect(() => {
     const parsedHistory = readJson<HistoryItem[]>(HISTORY_KEY, []);
-    const parsedRoutines = readJson<RoutineDefinition[]>(ROUTINES_KEY, defaultRoutines);
+    const storedRoutines = readJson<RoutineDefinition[]>(ROUTINES_KEY, defaultRoutines);
+    const parsedRoutines = ensureCurrentRoutineTemplates(storedRoutines);
+    if (parsedRoutines.length !== storedRoutines.length) localStorage.setItem(ROUTINES_KEY, JSON.stringify(parsedRoutines));
     const parsedCustom = readJson<StoredCustomExercise[]>(CUSTOM_KEY, []);
     const parsedNotes = readJson<NotesMap>(NOTES_KEY, {});
     const parsedRests = readJson<RestMap>(REST_KEY, {});
