@@ -1,6 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stat,
+  StatGrid,
+  TextInput,
+} from "../ui";
 
 const BODYWEIGHT_KEY = "workout-tracker:v0.6:bodyweight";
 
@@ -80,51 +93,84 @@ export default function BodyweightManager() {
     if (editingId === id) setEditingId(null);
   }
 
+  const go = (href: string) => { window.location.href = href; };
+
   return (
-    <main className="v16-shell">
-      <header className="v16-page-header v16-page-header-row">
-        <div>
-          <p className="v16-kicker">BODYWEIGHT</p>
-          <h1>Bodyweight</h1>
-          <p>Log it, correct mistakes, and keep the history clean.</p>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="Bodyweight"
+          eyebrowVolt
+          title="Bodyweight"
+          lede="Log it, correct mistakes, and keep the history clean."
+          action={<Button variant="ghost" size="sm" onClick={() => go("/progress")}>← Progress</Button>}
+        />
+      </div>
+
+      <div className="ds-rise ds-rise--1">
+        <StatGrid cols={3}>
+          <Stat label="Current" value={current == null ? "—" : `${current} lb`} />
+          <Stat label="Previous" value={previous == null ? "—" : `${previous} lb`} />
+          <Stat label="Change" value={delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)} lb`} />
+        </StatGrid>
+      </div>
+
+      <Card className="ds-rise ds-rise--2">
+        <SectionHeader eyebrow="New entry" title="Log bodyweight" />
+        <div className="ds-stack" style={{ marginTop: 12 }}>
+          <div className="ds-grid-2">
+            <Field label="Weight" suffix="lb">
+              <TextInput type="number" inputMode="decimal" min={1} max={1000} step={0.1} value={weight} onChange={(event) => setWeight(event.target.value)} placeholder="145.0" />
+            </Field>
+            <Field label="Date">
+              <TextInput type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </Field>
+          </div>
+          <Button variant="primary" block onClick={addEntry}>Add entry</Button>
         </div>
-        <a className="v16-back-button" href="/progress">← Progress</a>
-      </header>
+      </Card>
 
-      <section className="v16-weight-overview">
-        <div><span>Current</span><strong>{current == null ? "—" : `${current} lb`}</strong></div>
-        <div><span>Previous</span><strong>{previous == null ? "—" : `${previous} lb`}</strong></div>
-        <div><span>Change</span><strong>{delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)} lb`}</strong></div>
-      </section>
-
-      <section className="v16-panel v16-weight-add">
-        <div className="v16-section-head"><div><p className="v16-kicker">NEW ENTRY</p><h2>Log bodyweight</h2></div></div>
-        <div className="v16-weight-form">
-          <label><span>Weight (lb)</span><input type="number" inputMode="decimal" min="1" max="1000" step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} placeholder="145.0" /></label>
-          <label><span>Date</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-          <button type="button" onClick={addEntry}>Add entry</button>
-        </div>
-      </section>
-
-      <section className="v16-panel">
-        <div className="v16-section-head"><div><p className="v16-kicker">HISTORY</p><h2>Entries</h2></div><span>{sorted.length} logged</span></div>
-        <div className="v16-weight-list">
-          {sorted.length ? sorted.map((entry) => editingId === entry.id ? (
-            <div className="v16-weight-row editing" key={entry.id}>
-              <div className="v16-weight-edit-fields">
-                <label><span>Weight</span><input type="number" inputMode="decimal" step="0.1" value={editWeight} onChange={(event) => setEditWeight(event.target.value)} /></label>
-                <label><span>Date</span><input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} /></label>
-              </div>
-              <div className="v16-row-actions"><button type="button" onClick={saveEdit}>Save</button><button type="button" onClick={() => setEditingId(null)}>Cancel</button></div>
+      <Card className="ds-rise ds-rise--3">
+        <SectionHeader eyebrow="History" title="Entries" action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{sorted.length} logged</span>} />
+        <div style={{ marginTop: 12 }}>
+          {sorted.length ? (
+            <div className="ds-stack">
+              {sorted.map((entry) => editingId === entry.id ? (
+                <Card tight key={entry.id}>
+                  <div className="ds-stack">
+                    <div className="ds-grid-2">
+                      <Field label="Weight" suffix="lb">
+                        <TextInput type="number" inputMode="decimal" step={0.1} value={editWeight} onChange={(event) => setEditWeight(event.target.value)} />
+                      </Field>
+                      <Field label="Date">
+                        <TextInput type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} />
+                      </Field>
+                    </div>
+                    <div className="ds-cluster">
+                      <Button variant="primary" size="sm" onClick={saveEdit}>Save</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <ListRow
+                  key={entry.id}
+                  title={<strong>{entry.value} lb</strong>}
+                  sub={displayDate(entry.recordedAt)}
+                  trailing={
+                    <div className="ds-cluster">
+                      <Button variant="ghost" size="sm" onClick={() => beginEdit(entry)}>Edit</Button>
+                      <Button variant="danger" size="sm" onClick={() => removeEntry(entry.id)}>Delete</Button>
+                    </div>
+                  }
+                />
+              ))}
             </div>
           ) : (
-            <div className="v16-weight-row" key={entry.id}>
-              <div><strong>{entry.value} lb</strong><span>{displayDate(entry.recordedAt)}</span></div>
-              <div className="v16-row-actions"><button type="button" onClick={() => beginEdit(entry)}>Edit</button><button className="danger" type="button" onClick={() => removeEntry(entry.id)}>Delete</button></div>
-            </div>
-          )) : <div className="v16-empty">No bodyweight entries yet.</div>}
+            <EmptyState title="No bodyweight entries yet" body="Log your first weigh-in above to start the trend." />
+          )}
         </div>
-      </section>
-    </main>
+      </Card>
+    </PageShell>
   );
 }

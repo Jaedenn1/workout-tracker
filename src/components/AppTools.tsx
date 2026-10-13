@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { db } from "../lib/database";
+import { Button, Field, ListRow, Sheet, TextInput } from "../ui";
 
 const SYNC_KEY_STORAGE = "workout-tracker:v0.5:sync-key";
 const AUTO_SYNC_STORAGE = "workout-tracker:v0.5:auto-sync";
@@ -299,75 +300,98 @@ export default function AppTools() {
         </button>
       </nav>
 
-      {moreOpen && (
-        <div className="v11-more-backdrop" onClick={() => setMoreOpen(false)}>
-          <section className="v11-more-sheet v16-more-sheet" onClick={(event) => event.stopPropagation()} aria-label="More options">
-            <div className="v11-more-handle" />
-            <div className="v11-more-heading">
-              <div><p>MORE</p><h2>Settings & connections</h2></div>
-              <button type="button" onClick={() => setMoreOpen(false)}>×</button>
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Settings & connections">
+        <div className="ds-stack">
+          <section className="ds-rise">
+            <p className="ds-eyebrow">Data & device</p>
+            <div style={{ marginTop: 10 }}>
+              <ListRow
+                href="/data"
+                icon={<span aria-hidden="true">🛡</span>}
+                title="Data Center"
+                sub="Backups, restore and export"
+                chevron
+              />
+              <ListRow
+                icon={<span aria-hidden="true">☁</span>}
+                title="Device & Sync"
+                sub="Cloud backup and this device"
+                chevron
+                onClick={() => { setMoreOpen(false); setSyncOpen(true); }}
+              />
             </div>
-
-            <div className="v16-more-section">
-              <p>DATA & DEVICE</p>
-              <div className="v16-more-list">
-                <a href="/data"><span>🛡</span><div><strong>Data Center</strong><small>Backups, restore and export</small></div><b>›</b></a>
-                <button type="button" onClick={() => { setMoreOpen(false); setSyncOpen(true); }}><span>☁</span><div><strong>Device & Sync</strong><small>Cloud backup and this device</small></div><b>›</b></button>
-              </div>
-            </div>
-
-            <div className="v16-more-section">
-              <p>APPLE</p>
-              <div className="v16-more-list">
-                <a href="/health"><span>🍎</span><div><strong>Apple Health</strong><small>HealthKit bridge and imports</small></div><b>›</b></a>
-                <a href="/watch"><span>⌚</span><div><strong>Apple Watch</strong><small>Watch workout session bridge</small></div><b>›</b></a>
-              </div>
-            </div>
-
-            {!standalone && (
-              <div className="v16-more-section">
-                <p>APP</p>
-                <div className="v16-more-list">
-                  <button type="button" onClick={installApp}><span>＋</span><div><strong>Install Workout Tracker</strong><small>Add the app to your Home Screen</small></div><b>›</b></button>
-                </div>
-              </div>
-            )}
           </section>
-        </div>
-      )}
 
-      {syncOpen && (
-        <div className="v05-backdrop" onClick={() => setSyncOpen(false)}>
-          <section className="v05-panel v16-sync-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="v05-heading">
-              <div><p>WORKOUT TRACKER</p><h2>Device & sync</h2></div>
-              <button type="button" onClick={() => setSyncOpen(false)}>×</button>
+          <section className="ds-rise ds-rise--1">
+            <p className="ds-eyebrow">Apple</p>
+            <div style={{ marginTop: 10 }}>
+              <ListRow
+                href="/health"
+                icon={<span aria-hidden="true">🍎</span>}
+                title="Apple Health"
+                sub="HealthKit bridge and imports"
+                chevron
+              />
+              <ListRow
+                href="/watch"
+                icon={<span aria-hidden="true">⌚</span>}
+                title="Apple Watch"
+                sub="Watch workout session bridge"
+                chevron
+              />
             </div>
-            <div className="v05-status">{status}</div>
-            <div className="v05-block">
-              <h3>Cloud backup</h3>
-              <p>Your routines, drafts, history, bodyweight, Gym Mode settings and Health imports use one private sync key. Local IndexedDB remains the device-side source of truth.</p>
-              <div className="v05-key-row">
-                <input value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); setAutoSync(false); }} placeholder="Generate or paste sync key" spellCheck={false} />
-                <button type="button" onClick={copyKey}>Copy key</button>
-              </div>
-              <div className="v05-actions">
-                <button type="button" disabled={busy} onClick={backupNow}>Back up now</button>
-                <button type="button" disabled={busy} onClick={restoreCloud}>Restore</button>
-                <button type="button" disabled={busy} onClick={checkCloud}>Check</button>
-              </div>
-              <small>After the first successful backup, this device pushes changes about every 20 seconds and clears the local queue only after the server accepts the snapshot.</small>
-            </div>
-            <div className="v05-block">
-              <h3>{standalone ? "Installed app" : "Install on this device"}</h3>
-              <p>{standalone ? "Workout Tracker is running as an installed app." : "Install it so the tracker opens like a normal app from your Home Screen."}</p>
-              {!standalone && <button type="button" className="v05-install" onClick={installApp}>Install app</button>}
-              {installHelp && <small>{installHelp}</small>}
-            </div>
-            <p className="v05-footnote">Workout logging stays local-first. HealthKit, Watch, cloud and internet failures never block a session.</p>
           </section>
+
+          {!standalone && (
+            <section className="ds-rise ds-rise--2">
+              <p className="ds-eyebrow">App</p>
+              <div style={{ marginTop: 10 }}>
+                <ListRow
+                  icon={<span aria-hidden="true">＋</span>}
+                  title="Install Workout Tracker"
+                  sub="Add the app to your Home Screen"
+                  chevron
+                  onClick={installApp}
+                />
+              </div>
+            </section>
+          )}
         </div>
-      )}
+      </Sheet>
+
+      <Sheet open={syncOpen} onClose={() => setSyncOpen(false)} title="Device & sync">
+        <div className="ds-stack">
+          <div className="ds-muted ds-rise">{status}</div>
+
+          <section className="ds-rise ds-rise--1">
+            <h3 className="ds-section-title">Cloud backup</h3>
+            <p className="ds-muted" style={{ margin: "6px 0 12px" }}>Your routines, drafts, history, bodyweight, Gym Mode settings and Health imports use one private sync key. Local IndexedDB remains the device-side source of truth.</p>
+            <Field label="Sync key">
+              <TextInput value={syncKey} onChange={(event) => { setSyncKey(event.target.value.trim()); localStorage.setItem(SYNC_KEY_STORAGE, event.target.value.trim()); localStorage.removeItem(AUTO_SYNC_STORAGE); setAutoSync(false); }} placeholder="Generate or paste sync key" spellCheck={false} />
+            </Field>
+            <div style={{ marginTop: 8 }}>
+              <Button variant="secondary" size="sm" onClick={copyKey}>Copy key</Button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Button variant="primary" block disabled={busy} onClick={backupNow}>Back up now</Button>
+            </div>
+            <div className="ds-grid-2" style={{ marginTop: 8 }}>
+              <Button variant="secondary" block disabled={busy} onClick={restoreCloud}>Restore</Button>
+              <Button variant="secondary" block disabled={busy} onClick={checkCloud}>Check</Button>
+            </div>
+            <p className="ds-muted" style={{ fontSize: "0.78rem", margin: "10px 0 0" }}>After the first successful backup, this device pushes changes about every 20 seconds and clears the local queue only after the server accepts the snapshot.</p>
+          </section>
+
+          <section className="ds-rise ds-rise--2">
+            <h3 className="ds-section-title">{standalone ? "Installed app" : "Install on this device"}</h3>
+            <p className="ds-muted" style={{ margin: "6px 0 12px" }}>{standalone ? "Workout Tracker is running as an installed app." : "Install it so the tracker opens like a normal app from your Home Screen."}</p>
+            {!standalone && <Button variant="secondary" block onClick={installApp}>Install app</Button>}
+            {installHelp && <p className="ds-muted" style={{ fontSize: "0.78rem", margin: "10px 0 0" }}>{installHelp}</p>}
+          </section>
+
+          <p className="ds-muted ds-rise ds-rise--3" style={{ fontSize: "0.78rem" }}>Workout logging stays local-first. HealthKit, Watch, cloud and internet failures never block a session.</p>
+        </div>
+      </Sheet>
     </>
   );
 }
