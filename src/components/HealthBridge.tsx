@@ -1,6 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "../ui";
 
 const HISTORY_KEY = "workout-tracker:v0.2:history";
 const BODYWEIGHT_KEY = "workout-tracker:v0.6:bodyweight";
@@ -129,6 +140,13 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const HOW_IT_WORKS = [
+  "Export a bridge file from Workout Tracker.",
+  "Open it in the native iPhone companion and request HealthKit access.",
+  "Select the exact workouts or weights you want written to Apple Health.",
+  "Export a Health snapshot back to the PWA whenever you want a local reference copy.",
+];
+
 export default function HealthBridge() {
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
   const [bodyweight, setBodyweight] = useState<BodyweightEntry[]>([]);
@@ -195,109 +213,116 @@ export default function HealthBridge() {
     }
   }
 
+  const go = (href: string) => { window.location.href = href; };
+
   if (!hydrated) {
-    return <main className="health-shell"><p className="health-muted">Loading Health bridge…</p></main>;
+    return <PageShell><p className="ds-muted">Loading Health bridge…</p></PageShell>;
   }
 
   return (
-    <main className="health-shell">
-      <header className="health-hero">
-        <div>
-          <p className="health-eyebrow">V0.8 · NATIVE iOS + HEALTHKIT</p>
-          <h1>Apple Health Bridge</h1>
-          <p>
-            Your browser never requests Health access. The native iPhone companion handles HealthKit permissions,
-            while this page moves selected workout and bodyweight data through a local JSON file.
-          </p>
-        </div>
-        <a className="health-back" href="/gym">← Gym Mode</a>
-      </header>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="V0.8 · Native iOS + HealthKit"
+          eyebrowVolt
+          title={<>Apple Health <span className="ds-accent">Bridge</span></>}
+          lede="Your browser never requests Health access. The native iPhone companion handles HealthKit permissions, while this page moves selected workout and bodyweight data through a local JSON file."
+          action={<Button variant="ghost" size="sm" onClick={() => go("/gym")}>← Gym Mode</Button>}
+        />
+      </div>
 
-      <div className="health-status" role="status">{status}</div>
+      <Card tight className="ds-rise ds-rise--1" role="status">
+        <span className="ds-muted">{status}</span>
+      </Card>
 
-      <section className="health-grid">
-        <article className="health-card">
-          <span className="health-icon">📱</span>
-          <p className="health-kicker">NATIVE COMPANION</p>
-          <h2>HealthKit stays on iPhone</h2>
-          <p>
+      <div className="ds-rise ds-rise--2" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        <Card>
+          <SectionHeader eyebrow="Native companion" title="HealthKit stays on iPhone" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>
             The SwiftUI companion requests Apple Health permission only after you tap Connect. It can read recent
             strength workouts and bodyweight, then write only the entries you explicitly select.
           </p>
-          <a
-            className="health-secondary"
-            href="https://github.com/Jaedenn1/workout-tracker/tree/main/ios/WorkoutTrackerNative"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open iOS source ↗
-          </a>
-        </article>
-
-        <article className="health-card">
-          <span className="health-icon">⬆️</span>
-          <p className="health-kicker">WEB → APPLE HEALTH</p>
-          <h2>Export your tracker data</h2>
-          <div className="health-counts">
-            <div><strong>{exportEnvelope.workouts.length}</strong><span>workouts</span></div>
-            <div><strong>{exportEnvelope.bodyweight.length}</strong><span>weights</span></div>
+          <div style={{ marginTop: 14 }}>
+            <a
+              className="ds-btn ds-btn--secondary ds-btn--md"
+              style={{ textDecoration: "none" }}
+              href="https://github.com/Jaedenn1/workout-tracker/tree/main/ios/WorkoutTrackerNative"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open iOS source ↗
+            </a>
           </div>
-          <p>Download one local bridge file, open it in the native companion, choose exactly what to write, then approve Health access.</p>
-          <button className="health-primary" type="button" onClick={exportToIPhone}>Export bridge file</button>
-        </article>
+        </Card>
 
-        <article className="health-card">
-          <span className="health-icon">⬇️</span>
-          <p className="health-kicker">APPLE HEALTH → TRACKER</p>
-          <h2>Import a Health snapshot</h2>
-          <p>
+        <Card>
+          <SectionHeader eyebrow="Web → Apple Health" title="Export your tracker data" />
+          <div style={{ marginTop: 12 }}>
+            <StatGrid cols={2}>
+              <Stat label="Workouts" value={exportEnvelope.workouts.length} />
+              <Stat label="Weights" value={exportEnvelope.bodyweight.length} />
+            </StatGrid>
+          </div>
+          <p className="ds-muted" style={{ margin: "10px 0 0" }}>Download one local bridge file, open it in the native companion, choose exactly what to write, then approve Health access.</p>
+          <div style={{ marginTop: 14 }}>
+            <Button variant="primary" block onClick={exportToIPhone}>Export bridge file</Button>
+          </div>
+        </Card>
+
+        <Card>
+          <SectionHeader eyebrow="Apple Health → Tracker" title="Import a Health snapshot" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>
             Import an export from the native companion. Apple Health snapshots stay isolated from your progression
             history so they cannot create fake PRs or alter your next-target calculations.
           </p>
-          <label className="health-secondary" htmlFor="health-bridge-file">Import bridge file</label>
-          <input
-            id="health-bridge-file"
-            className="health-file-input"
-            type="file"
-            accept="application/json,.json"
-            onChange={importFromAppleHealth}
-          />
-        </article>
-      </section>
-
-      <section className="health-panel">
-        <div className="health-panel-heading">
-          <div>
-            <p className="health-kicker">LATEST APPLE HEALTH SNAPSHOT</p>
-            <h2>{latestImport ? formatDate(latestImport.importedAt) : "Nothing imported yet"}</h2>
+          <div style={{ marginTop: 14 }}>
+            <label className="ds-btn ds-btn--secondary ds-btn--md" style={{ cursor: "pointer" }} htmlFor="health-bridge-file">Import bridge file</label>
+            <input
+              id="health-bridge-file"
+              style={{ display: "none" }}
+              type="file"
+              accept="application/json,.json"
+              onChange={importFromAppleHealth}
+            />
           </div>
-          {latestImport && <span>{latestImport.source}</span>}
-        </div>
+        </Card>
+      </div>
 
-        {latestImport ? (
-          <div className="health-summary-row">
-            <div><strong>{latestImport.workouts.length}</strong><span>strength workouts</span></div>
-            <div><strong>{latestImport.bodyweight.length}</strong><span>bodyweight entries</span></div>
-            <div><strong>{imports.length}</strong><span>saved snapshots</span></div>
-          </div>
-        ) : (
-          <p className="health-muted">Use the native companion to export Apple Health data, then import the JSON here.</p>
-        )}
-      </section>
-
-      <section className="health-panel">
-        <p className="health-kicker">HOW V0.8 WORKS</p>
-        <div className="health-steps">
-          <div><span>1</span><p>Export a bridge file from Workout Tracker.</p></div>
-          <div><span>2</span><p>Open it in the native iPhone companion and request HealthKit access.</p></div>
-          <div><span>3</span><p>Select the exact workouts or weights you want written to Apple Health.</p></div>
-          <div><span>4</span><p>Export a Health snapshot back to the PWA whenever you want a local reference copy.</p></div>
+      <Card className="ds-rise ds-rise--3">
+        <SectionHeader
+          eyebrow="Latest Apple Health snapshot"
+          title={latestImport ? formatDate(latestImport.importedAt) : "Nothing imported yet"}
+          action={latestImport ? <Badge>{latestImport.source}</Badge> : undefined}
+        />
+        <div style={{ marginTop: 12 }}>
+          {latestImport ? (
+            <StatGrid cols={3}>
+              <Stat label="Strength workouts" value={latestImport.workouts.length} />
+              <Stat label="Bodyweight entries" value={latestImport.bodyweight.length} />
+              <Stat label="Saved snapshots" value={imports.length} />
+            </StatGrid>
+          ) : (
+            <p className="ds-muted" style={{ margin: 0 }}>Use the native companion to export Apple Health data, then import the JSON here.</p>
+          )}
         </div>
-        <p className="health-note">
+      </Card>
+
+      <Card className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="How v0.8 works" title="The offline file bridge" />
+        <div className="ds-stack" style={{ marginTop: 12 }}>
+          {HOW_IT_WORKS.map((step, index) => (
+            <ListRow
+              key={step}
+              icon={<span className="ds-tnum" style={{ fontWeight: 800, color: "var(--ds-volt)" }}>{index + 1}</span>}
+              title={step}
+            />
+          ))}
+        </div>
+        <p className="ds-muted" style={{ margin: "12px 0 0" }}>
           Health data is not required to log a workout. Gym Mode remains local-first and works normally when HealthKit,
           cloud sync, or the internet are unavailable.
         </p>
-      </section>
-    </main>
+      </Card>
+    </PageShell>
   );
 }
