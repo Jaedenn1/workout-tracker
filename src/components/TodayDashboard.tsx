@@ -24,6 +24,17 @@ import {
   todayPlanIndex,
   type WeeklyPlanDay,
 } from "../lib/weeklyPlan";
+import {
+  Badge,
+  Button,
+  Card,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  SegmentedControl,
+  Stat,
+  StatGrid,
+} from "../ui";
 
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
@@ -131,55 +142,130 @@ export default function TodayDashboard() {
     localStorage.setItem(READINESS_KEY, JSON.stringify(next));
   }
 
-  return (
-    <main className="ti-shell ti-home ti-home-v192">
-      <header className="ti-topbar ti-topbar-clean">
-        <div><p className="ti-eyebrow">TODAY · V1.9.5</p><h1>Training Console</h1></div>
-        <a className="ti-clean-link" href="/history">History</a>
-      </header>
+  const go = (href: string) => { window.location.href = href; };
+  const dateLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  const primaryLabel = todayPlan.kind === "lift" && draftRunning ? "Resume workout" : todayPlanAction.label;
 
-      <section className="ti-today-hero ti-today-hero-clean">
-        <div className="ti-hero-copy">
-          <p className="ti-eyebrow">TODAY · {todayPlan.kind.toUpperCase()}</p>
-          <h2>{todayPlan.title}</h2>
-          <p>{todayPlan.detail || "No extra goal set."}{todayPlan.kind === "lift" ? ` · ${activeRoutine.name}` : ""}</p>
-          <div className="ti-hero-actions">
-            <a className="ti-primary" href={todayPlanAction.href}>{todayPlan.kind === "lift" && draftRunning ? "Resume workout" : todayPlanAction.label}</a>
-            <a className="ti-secondary" href="/plan">Adjust plan</a>
+  return (
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow={dateLabel}
+          eyebrowVolt
+          title={<>Training <span className="ds-accent">Console</span></>}
+          action={<Button variant="ghost" size="sm" onClick={() => go("/history")}>History</Button>}
+        />
+      </div>
+
+      <Card glow className="ds-rise ds-rise--1">
+        <div className="ds-stack">
+          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+            <Badge tone="volt" dot>{todayPlan.kind === "rest" ? "Recovery" : todayPlan.kind}</Badge>
+            <span className="ds-muted" style={{ fontSize: "0.78rem" }}>{todayPlan.kind === "lift" ? activeRoutine.name : "Live session"}</span>
+          </div>
+          <div>
+            <h2 className="ds-section-title" style={{ fontSize: "1.6rem" }}>{todayPlan.title}</h2>
+            <p className="ds-muted" style={{ margin: "6px 0 0" }}>
+              {todayPlan.detail || "No extra goal set."}
+              {todayPlan.kind === "lift" ? ` · ${activeRoutine.exerciseIds.length} exercises · ~${plannedSets} sets` : ""}
+              {progressionReady > 0 ? ` · ${progressionReady} ready to progress` : ""}
+            </p>
+          </div>
+          <StatGrid cols={2}>
+            <Stat
+              label={todayPlan.kind === "lift" ? "Last comparable" : "Session"}
+              value={todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "First") : "Ready"}
+              sub={todayPlan.kind === "lift"
+                ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : "No baseline yet — let's build one")
+                : "Live tracking saves to history"}
+            />
+            <Stat
+              label="Coach signal"
+              value={adaptiveWeek.todayRecommendation.signal.toUpperCase()}
+              tone="volt"
+              sub={adaptiveWeek.todayRecommendation.label}
+            />
+          </StatGrid>
+          <div className="ds-grid-2">
+            <Button variant="primary" size="lg" block onClick={() => go(todayPlanAction.href)}>{primaryLabel}</Button>
+            <Button variant="secondary" size="lg" block onClick={() => go("/plan")}>Adjust plan</Button>
           </div>
         </div>
-        <div className="ti-hero-stat ti-hero-stat-clean">
-          <span>{todayPlan.kind === "lift" ? "LAST COMPARABLE" : "SESSION"}</span>
-          <strong>{todayPlan.kind === "lift" ? (lastSameRoutine ? formatShortDate(lastSameRoutine.completedAt) : "First session") : "Ready"}</strong>
-          <small>{todayPlan.kind === "lift" ? (lastSameRoutine ? `${formatDuration(lastSameRoutine.durationSeconds)} · ${Math.round(lastSameRoutine.totalVolume).toLocaleString()} lb` : `${activeRoutine.exerciseIds.length} exercises · ~${plannedSets} sets${progressionReady ? ` · ${progressionReady} progressions` : ""}`) : "Live tracking will save directly to training history."}</small>
-        </div>
-      </section>
+      </Card>
 
-      <a className="ti-coach-strip ti-coach-strip-clean" href="/coach">
-        <span>COACH · {adaptiveWeek.todayRecommendation.signal.toUpperCase()}</span>
-        <strong>{adaptiveWeek.todayRecommendation.label}</strong>
-        <small>{adaptiveWeek.todayRecommendation.reason}</small>
-        <b>›</b>
-      </a>
-
-      <section className="ti-readiness-card ti-readiness-clean">
-        <div className="ti-section-head"><div><p className="ti-eyebrow">READINESS</p><h2>Quick check</h2></div><span>{readinessLabel(todayReadiness)}</span></div>
-        <div className="ti-readiness-grid">
-          <div><strong>Sleep</strong><div className="ti-segments">{(["poor", "ok", "good"] as const).map((value) => <button key={value} className={todayReadiness?.sleep === value ? "active" : ""} onClick={() => setReadinessField("sleep", value)}>{value}</button>)}</div></div>
-          <div><strong>Energy</strong><div className="ti-segments">{(["low", "normal", "high"] as const).map((value) => <button key={value} className={todayReadiness?.energy === value ? "active" : ""} onClick={() => setReadinessField("energy", value)}>{value}</button>)}</div></div>
-          <div><strong>Soreness</strong><div className="ti-segments">{(["none", "some", "high"] as const).map((value) => <button key={value} className={todayReadiness?.soreness === value ? "active" : ""} onClick={() => setReadinessField("soreness", value)}>{value}</button>)}</div></div>
+      <Card pressable onClick={() => go("/coach")} className="ds-rise ds-rise--2">
+        <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+          <Badge tone="blue">Coach</Badge>
+          <span className="ds-muted" style={{ fontSize: "0.78rem" }}>{adaptiveWeek.todayRecommendation.signal}</span>
         </div>
-      </section>
+        <h3 className="ds-section-title" style={{ marginTop: 10 }}>{adaptiveWeek.todayRecommendation.label}</h3>
+        <p className="ds-muted" style={{ margin: "6px 0 0" }}>{adaptiveWeek.todayRecommendation.reason}</p>
+      </Card>
 
-      <section className="ti-overview-section">
-        <div className="ti-section-head"><div><p className="ti-eyebrow">OVERVIEW</p><h2>Your training</h2></div><a className="ti-clean-link" href="/progress">View progress</a></div>
-        <div className="ti-overview-grid">
-          <a href="/progress"><span>Next target</span><strong>{firstTarget?.target ?? "Build baseline"}</strong><small>{firstTarget?.label ?? "Progression appears after logging"}</small></a>
-          <a href="/bodyweight"><span>Bodyweight</span><strong>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</strong><small>View and edit</small></a>
-          <a href="/prs"><span>Latest PR</span><strong>{latestPr?.pr ?? "No PR yet"}</strong><small>{latestPr ? formatShortDate(latestPr.completedAt) : "Record board ready"}</small></a>
-          <a href="/history"><span>Last session</span><strong>{history[0]?.name ?? "No sessions yet"}</strong><small>{history[0] ? formatShortDate(history[0].completedAt) : "Open training history"}</small></a>
+      <div className="ds-rise ds-rise--3">
+        <SectionHeader eyebrow="Readiness" title="Quick check" action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{readinessLabel(todayReadiness)}</span>} />
+        <div style={{ marginTop: 12 }}>
+          <Card tight>
+            <div className="ds-stack">
+              <div>
+                <div className="ds-field__label" style={{ marginBottom: 6 }}>Sleep</div>
+                <SegmentedControl
+                  label="Sleep quality"
+                  options={[{ value: "poor", label: "Poor" }, { value: "ok", label: "OK" }, { value: "good", label: "Good" }] as const}
+                  value={todayReadiness?.sleep ?? "ok"}
+                  onChange={(v) => setReadinessField("sleep", v)}
+                />
+              </div>
+              <div>
+                <div className="ds-field__label" style={{ marginBottom: 6 }}>Energy</div>
+                <SegmentedControl
+                  label="Energy"
+                  options={[{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }] as const}
+                  value={todayReadiness?.energy ?? "normal"}
+                  onChange={(v) => setReadinessField("energy", v)}
+                />
+              </div>
+              <div>
+                <div className="ds-field__label" style={{ marginBottom: 6 }}>Soreness</div>
+                <SegmentedControl
+                  label="Soreness"
+                  options={[{ value: "none", label: "None" }, { value: "some", label: "Some" }, { value: "high", label: "High" }] as const}
+                  value={todayReadiness?.soreness ?? "some"}
+                  onChange={(v) => setReadinessField("soreness", v)}
+                />
+              </div>
+            </div>
+          </Card>
         </div>
-      </section>
-    </main>
+      </div>
+
+      <div className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="Overview" title="Your training" action={<Button variant="ghost" size="sm" onClick={() => go("/progress")}>View progress</Button>} />
+        <div style={{ marginTop: 12 }}>
+          <StatGrid cols={2}>
+            <Card tight pressable onClick={() => go("/progress")}>
+              <div className="ds-stat__label">Next target</div>
+              <div className="ds-stat__value" style={{ fontSize: "1.15rem" }}>{firstTarget?.target ?? "Build baseline"}</div>
+              <div className="ds-stat__sub">{firstTarget?.label ?? "Progression appears after logging"}</div>
+            </Card>
+            <Card tight pressable onClick={() => go("/bodyweight")}>
+              <div className="ds-stat__label">Bodyweight</div>
+              <div className="ds-stat__value ds-tnum" style={{ fontSize: "1.15rem" }}>{latestWeight ? `${Number(latestWeight.value).toFixed(1)} lb` : "Add weight"}</div>
+              <div className="ds-stat__sub">View and edit</div>
+            </Card>
+            <Card tight pressable onClick={() => go("/prs")}>
+              <div className="ds-stat__label">Latest PR</div>
+              <div className="ds-stat__value ds-stat__value--amber" style={{ fontSize: "1.15rem" }}>{latestPr?.pr ?? "No PR yet"}</div>
+              <div className="ds-stat__sub">{latestPr ? formatShortDate(latestPr.completedAt) : "Record board ready"}</div>
+            </Card>
+            <Card tight pressable onClick={() => go("/history")}>
+              <div className="ds-stat__label">Last session</div>
+              <div className="ds-stat__value" style={{ fontSize: "1.15rem" }}>{history[0]?.name ?? "No sessions yet"}</div>
+              <div className="ds-stat__sub">{history[0] ? formatShortDate(history[0].completedAt) : "Open training history"}</div>
+            </Card>
+          </StatGrid>
+        </div>
+      </div>
+    </PageShell>
   );
 }
