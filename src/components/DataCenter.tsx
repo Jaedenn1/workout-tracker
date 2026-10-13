@@ -2,6 +2,17 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import {
+  Button,
+  Card,
+  EmptyState,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "../ui";
+import {
   createSafetySnapshot,
   exportBackup,
   exportWorkoutCsv,
@@ -37,6 +48,13 @@ function formatDate(value: string) {
     timeStyle: "short",
   }).format(new Date(value));
 }
+
+const STORAGE_MODEL = [
+  "Gym Mode writes normally.",
+  "Writes are mirrored into IndexedDB and normalized tables.",
+  "A compact sync queue records the newest unsent state per data key.",
+  "Cloud failure never blocks the local workout.",
+];
 
 export default function DataCenter() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -127,90 +145,104 @@ export default function DataCenter() {
     }
   }
 
+  const go = (href: string) => { window.location.href = href; };
+
   return (
-    <main className="v10-shell">
-      <header className="v10-hero">
-        <div>
-          <p className="v10-eyebrow">V1.0 · DATA SAFETY</p>
-          <h1>Data Center</h1>
-          <p>IndexedDB now mirrors and normalizes your workout data, while the legacy keys remain for compatibility with every earlier Workout Tracker release.</p>
-        </div>
-        <a className="v10-back" href="/gym">← Gym Mode</a>
-      </header>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="V1.0 · Data safety"
+          eyebrowVolt
+          title={<>Data <span className="ds-accent">Center</span></>}
+          lede="IndexedDB now mirrors and normalizes your workout data, while the legacy keys remain for compatibility with every earlier Workout Tracker release."
+          action={<Button variant="ghost" size="sm" onClick={() => go("/gym")}>← Gym Mode</Button>}
+        />
+      </div>
 
-      <div className="v10-status" role="status">{status}</div>
+      <Card tight className="ds-rise ds-rise--1" role="status">
+        <span className="ds-muted">{status}</span>
+      </Card>
 
-      <section className="v10-kpis">
-        <div><span>Workouts</span><strong>{stats?.workouts ?? "—"}</strong></div>
-        <div><span>Routines</span><strong>{stats?.routines ?? "—"}</strong></div>
-        <div><span>Bodyweight</span><strong>{stats?.bodyweight ?? "—"}</strong></div>
-        <div><span>Safety backups</span><strong>{stats?.backups ?? "—"}</strong></div>
-        <div><span>Queued changes</span><strong>{stats?.queuedChanges ?? "—"}</strong></div>
-      </section>
+      <div className="ds-rise ds-rise--2">
+        <StatGrid cols={4}>
+          <Stat label="Workouts" value={stats?.workouts ?? "—"} />
+          <Stat label="Routines" value={stats?.routines ?? "—"} />
+          <Stat label="Bodyweight" value={stats?.bodyweight ?? "—"} />
+          <Stat label="Safety backups" value={stats?.backups ?? "—"} />
+          <Stat label="Queued changes" value={stats?.queuedChanges ?? "—"} />
+        </StatGrid>
+      </div>
 
-      <section className="v10-grid">
-        <article className="v10-card">
-          <p className="v10-eyebrow">PORTABLE BACKUP</p>
-          <h2>Own your workout data</h2>
-          <p>Export a versioned JSON backup for full restore, or a flat CSV when you want your lifting history in a spreadsheet.</p>
-          <div className="v10-actions">
-            <button type="button" disabled={busy} onClick={exportJson}>Export full JSON</button>
-            <button type="button" disabled={busy} onClick={exportCsv}>Export workout CSV</button>
+      <div className="ds-rise ds-rise--3" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        <Card>
+          <SectionHeader eyebrow="Portable backup" title="Own your workout data" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>Export a versioned JSON backup for full restore, or a flat CSV when you want your lifting history in a spreadsheet.</p>
+          <div className="ds-grid-2" style={{ marginTop: 14 }}>
+            <Button variant="primary" disabled={busy} onClick={exportJson}>Export full JSON</Button>
+            <Button variant="secondary" disabled={busy} onClick={exportCsv}>Export workout CSV</Button>
           </div>
-        </article>
+        </Card>
 
-        <article className="v10-card">
-          <p className="v10-eyebrow">RESTORE</p>
-          <h2>Recover without guessing</h2>
-          <p>Before a restore, v1.0 automatically creates another local safety snapshot so you have a way back.</p>
-          <label className="v10-file-button" htmlFor="v10-backup-file">Choose backup JSON</label>
-          <input id="v10-backup-file" className="v10-file" type="file" accept="application/json,.json" onChange={importBackup} />
-        </article>
-
-        <article className="v10-card">
-          <p className="v10-eyebrow">LOCAL SNAPSHOT</p>
-          <h2>Checkpoint before changes</h2>
-          <p>Create an IndexedDB-only checkpoint before editing history, testing sync, or changing routines.</p>
-          <button type="button" disabled={busy} onClick={snapshot}>Create safety snapshot</button>
-        </article>
-      </section>
-
-      <section className="v10-card v10-wide">
-        <div className="v10-section-heading">
-          <div>
-            <p className="v10-eyebrow">RECENT SAFETY SNAPSHOTS</p>
-            <h2>Rollback points</h2>
+        <Card>
+          <SectionHeader eyebrow="Restore" title="Recover without guessing" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>Before a restore, v1.0 automatically creates another local safety snapshot so you have a way back.</p>
+          <div style={{ marginTop: 14 }}>
+            <label className="ds-btn ds-btn--secondary ds-btn--md" style={{ cursor: "pointer" }} htmlFor="v10-backup-file">Choose backup JSON</label>
+            <input
+              id="v10-backup-file"
+              style={{ display: "none" }}
+              type="file"
+              accept="application/json,.json"
+              onChange={importBackup}
+            />
           </div>
-          <a href="/history">Open workout history →</a>
-        </div>
+        </Card>
 
-        {snapshots.length ? (
-          <div className="v10-snapshot-list">
-            {snapshots.map((item) => (
-              <div key={item.id} className="v10-snapshot-row">
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{formatDate(item.createdAt)}</span>
-                </div>
-                <button type="button" disabled={busy} onClick={() => restoreSnapshot(item.id)}>Restore</button>
-              </div>
-            ))}
+        <Card>
+          <SectionHeader eyebrow="Local snapshot" title="Checkpoint before changes" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>Create an IndexedDB-only checkpoint before editing history, testing sync, or changing routines.</p>
+          <div style={{ marginTop: 14 }}>
+            <Button variant="secondary" disabled={busy} onClick={snapshot}>Create safety snapshot</Button>
           </div>
-        ) : (
-          <p className="v10-muted">No safety snapshots yet. Create one before your next major routine edit.</p>
-        )}
-      </section>
+        </Card>
+      </div>
 
-      <section className="v10-card v10-wide">
-        <p className="v10-eyebrow">V1.0 STORAGE MODEL</p>
-        <h2>Local-first, with a compatibility mirror</h2>
-        <div className="v10-model">
-          <div><strong>1</strong><span>Gym Mode writes normally.</span></div>
-          <div><strong>2</strong><span>Writes are mirrored into IndexedDB and normalized tables.</span></div>
-          <div><strong>3</strong><span>A compact sync queue records the newest unsent state per data key.</span></div>
-          <div><strong>4</strong><span>Cloud failure never blocks the local workout.</span></div>
+      <Card className="ds-rise ds-rise--4">
+        <SectionHeader
+          eyebrow="Recent safety snapshots"
+          title="Rollback points"
+          action={<Button variant="ghost" size="sm" onClick={() => go("/history")}>Open workout history →</Button>}
+        />
+        <div style={{ marginTop: 12 }}>
+          {snapshots.length ? (
+            <div className="ds-stack">
+              {snapshots.map((item) => (
+                <ListRow
+                  key={item.id}
+                  title={<strong>{item.label}</strong>}
+                  sub={formatDate(item.createdAt)}
+                  trailing={<Button variant="danger" size="sm" disabled={busy} onClick={() => restoreSnapshot(item.id)}>Restore</Button>}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No safety snapshots yet" body="Create one before your next major routine edit." />
+          )}
         </div>
-      </section>
-    </main>
+      </Card>
+
+      <Card className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="V1.0 storage model" title="Local-first, with a compatibility mirror" />
+        <div className="ds-stack" style={{ marginTop: 12 }}>
+          {STORAGE_MODEL.map((step, index) => (
+            <ListRow
+              key={step}
+              icon={<span className="ds-tnum" style={{ fontWeight: 800, color: "var(--ds-volt)" }}>{index + 1}</span>}
+              title={step}
+            />
+          ))}
+        </div>
+      </Card>
+    </PageShell>
   );
 }

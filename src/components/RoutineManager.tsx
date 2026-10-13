@@ -2,6 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { defaultRoutines, ensureCurrentRoutineTemplates, exerciseLibrary, type ExerciseDefinition, type RoutineDefinition } from "../data/training";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stepper,
+  TextAreaInput,
+  TextInput,
+} from "../ui";
 
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
@@ -47,13 +62,136 @@ export default function RoutineManager() {
   function setNote(value: string) { if (!selected) return; const next = { ...meta, [selected.id]: { ...meta[selected.id], note: value } }; setMeta(next); localStorage.setItem(META_KEY, JSON.stringify(next)); }
   function restoreTemplates() { const byId = new Map(routines.map((item) => [item.id, item])); for (const template of defaultRoutines) if (!byId.has(template.id)) byId.set(template.id, template); persist([...byId.values()]); }
 
-  return <main className="ti-shell">
-    <header className="ti-topbar"><div><p className="ti-eyebrow">ROUTINE BUILDER · V1.3</p><h1>Routines</h1><p>Build the plan once. Gym Mode handles the execution.</p></div><div className="ti-top-actions"><a href="/">← Today</a><a href="/gym">Gym</a></div></header>
-    <section className="ti-routine-layout"><aside className="ti-routine-list"><button className="ti-primary" onClick={createRoutine}>＋ New routine</button>{routines.map((routine) => <button key={routine.id} className={routine.id === selectedId ? "active" : ""} onClick={() => setSelectedId(routine.id)}><strong>{routine.name}</strong><span>{routine.exerciseIds.length} exercises{routine.id === activeId ? " · ACTIVE" : ""}</span></button>)}<button onClick={restoreTemplates}>Restore P/P/L templates</button></aside>
-      <section className="ti-card ti-routine-editor">{selected && <><div className="ti-section-head"><div><p className="ti-eyebrow">ROUTINE</p><input className="ti-title-input" value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })}/><span>{selectedDefinitions.length} exercises · about {totalSets} working sets</span></div><div className="ti-inline-actions"><button className={selected.id === activeId ? "active" : ""} onClick={activate}>{selected.id === activeId ? "Active routine" : "Set active"}</button><button onClick={duplicateRoutine}>Duplicate</button><button className="danger" onClick={removeRoutine}>{armedDelete === selected.id ? "Tap again to delete" : "Delete"}</button></div></div>
-        <label className="ti-field">Routine note<textarea value={meta[selected.id]?.note ?? ""} onChange={(event) => setNote(event.target.value)} placeholder="Focus, cues, schedule, or intent for this routine…"/></label>
-        <div className="ti-routine-exercises">{selectedDefinitions.map((exercise, index) => <article key={`${exercise.id}-${index}`}><div className="ti-routine-order"><button disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button disabled={index === selectedDefinitions.length - 1} onClick={() => move(index, 1)}>↓</button></div><div><strong>{exercise.name}</strong><span>{exercise.muscle} · {exercise.repMin}–{exercise.repMax} reps · {selected.setCountOverrides?.[exercise.id] ?? exercise.setCount} sets</span></div><label>Rest <input type="number" inputMode="numeric" min="15" max="600" step="15" value={rests[exercise.id] ?? 90} onChange={(event) => setRest(exercise.id, Number(event.target.value))}/> sec</label><button className="danger" onClick={() => removeExercise(index)}>Remove</button></article>)}{!selectedDefinitions.length && <p className="ti-empty">Add exercises below to build this routine.</p>}</div>
-        <details className="ti-dropdown"><summary>Add exercise <span>exercise library</span></summary><div className="ti-add-grid">{definitions.filter((definition) => !selected.exerciseIds.includes(definition.id)).map((definition) => <button key={definition.id} onClick={() => addExercise(definition.id)}><strong>{definition.name}</strong><span>{definition.muscle} · {definition.repMin}–{definition.repMax}</span></button>)}</div></details>
-      </>}</section></section>
-  </main>;
+  const go = (href: string) => { window.location.href = href; };
+
+  return (
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="ROUTINE BUILDER · V1.3"
+          eyebrowVolt
+          title="Routines"
+          lede="Build the plan once. Gym Mode handles the execution."
+          action={
+            <div className="ds-cluster">
+              <Button variant="ghost" size="sm" onClick={() => go("/")}>← Today</Button>
+              <Button variant="ghost" size="sm" onClick={() => go("/gym")}>Gym</Button>
+            </div>
+          }
+        />
+      </div>
+
+      <div className="ds-rise ds-rise--1">
+        <SectionHeader eyebrow="LIBRARY" title="Your routines" />
+        <div style={{ marginTop: 12 }}>
+          <div className="ds-stack">
+            <Button variant="primary" block onClick={createRoutine}>＋ New routine</Button>
+            {routines.map((routine) => (
+              <ListRow
+                key={routine.id}
+                title={routine.name}
+                sub={`${routine.exerciseIds.length} exercises${routine.id === activeId ? " · Active" : ""}`}
+                trailing={routine.id === selectedId ? <Badge tone="volt">Editing</Badge> : undefined}
+                onClick={() => setSelectedId(routine.id)}
+              />
+            ))}
+            <Button variant="ghost" onClick={restoreTemplates}>Restore P/P/L templates</Button>
+          </div>
+        </div>
+      </div>
+
+      {selected && (
+        <div className="ds-rise ds-rise--2">
+          <Card>
+            <div className="ds-stack">
+              <SectionHeader
+                eyebrow="ROUTINE"
+                title="Editor"
+                action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{selectedDefinitions.length} exercises · about {totalSets} working sets</span>}
+              />
+              <Field label="Routine name">
+                <TextInput value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
+              </Field>
+              <div className="ds-grid-2">
+                <Button variant="secondary" block onClick={activate}>{selected.id === activeId ? "Active routine" : "Set active"}</Button>
+                <Button variant="secondary" block onClick={duplicateRoutine}>Duplicate</Button>
+              </div>
+              <Button variant="danger" block onClick={removeRoutine}>{armedDelete === selected.id ? "Tap again to delete" : "Delete"}</Button>
+              <Field label="Routine note">
+                <TextAreaInput value={meta[selected.id]?.note ?? ""} onChange={(event) => setNote(event.target.value)} placeholder="Focus, cues, schedule, or intent for this routine…" />
+              </Field>
+
+              <div>
+                <SectionHeader eyebrow="EXERCISES" title="In this routine" />
+                <div style={{ marginTop: 12 }}>
+                  <div className="ds-stack">
+                    {selectedDefinitions.map((exercise, index) => (
+                      <Card tight key={`${exercise.id}-${index}`}>
+                        <div className="ds-stack">
+                          <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "nowrap" }}>
+                            <div className="ds-cluster" style={{ flexWrap: "nowrap" }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <IconButton small label={`Move ${exercise.name} up`} disabled={index === 0} onClick={() => move(index, -1)}>↑</IconButton>
+                                <IconButton small label={`Move ${exercise.name} down`} disabled={index === selectedDefinitions.length - 1} onClick={() => move(index, 1)}>↓</IconButton>
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div className="ds-row__title">{exercise.name}</div>
+                                <div className="ds-row__sub">{exercise.muscle} · {exercise.repMin}–{exercise.repMax} reps · {selected.setCountOverrides?.[exercise.id] ?? exercise.setCount} sets</div>
+                              </div>
+                            </div>
+                            <Button variant="danger" size="sm" onClick={() => removeExercise(index)}>Remove</Button>
+                          </div>
+                          <Stepper
+                            label="Rest"
+                            unit="sec"
+                            value={String(rests[exercise.id] ?? 90)}
+                            editable
+                            inputProps={{
+                              type: "number",
+                              inputMode: "numeric",
+                              min: 15,
+                              max: 600,
+                              step: 15,
+                              onChange: (event) => setRest(exercise.id, Number(event.target.value)),
+                            }}
+                            onDecrement={() => setRest(exercise.id, (rests[exercise.id] ?? 90) - 15)}
+                            onIncrement={() => setRest(exercise.id, (rests[exercise.id] ?? 90) + 15)}
+                            decrementLabel="Decrease rest"
+                            incrementLabel="Increase rest"
+                          />
+                        </div>
+                      </Card>
+                    ))}
+                    {!selectedDefinitions.length && (
+                      <EmptyState
+                        title="Empty routine"
+                        body="Add exercises below to build this routine."
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <details className="ds-card ds-card--tight">
+                <summary style={{ cursor: "pointer", listStyle: "none" }}>
+                  <span className="ds-section-title" style={{ fontSize: "1rem" }}>Add exercise</span>
+                  <span className="ds-muted" style={{ fontSize: "0.8rem" }}> · exercise library</span>
+                </summary>
+                <div className="ds-stack" style={{ marginTop: 12 }}>
+                  {definitions.filter((definition) => !selected.exerciseIds.includes(definition.id)).map((definition) => (
+                    <ListRow
+                      key={definition.id}
+                      title={definition.name}
+                      sub={`${definition.muscle} · ${definition.repMin}–${definition.repMax}`}
+                      onClick={() => addExercise(definition.id)}
+                    />
+                  ))}
+                </div>
+              </details>
+            </div>
+          </Card>
+        </div>
+      )}
+    </PageShell>
+  );
 }

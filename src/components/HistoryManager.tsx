@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createSafetySnapshot, db, persistLegacyKey, removeWorkout } from "../lib/database";
+import { Button, Card, Chip, EmptyState, Field, PageHeader, SegmentedControl, SelectInput, Stat, StatGrid, TextInput } from "../ui";
 
 const HISTORY_KEY = "workout-tracker:v0.2:history";
 type HistorySet = { weight?: number; reps?: number; rir?: number | null; estimated1RM?: number };
@@ -22,6 +23,8 @@ function recompute(workout: WorkoutPayload): WorkoutPayload {
   }) }));
   return { ...workout, exercises, totalVolume, completedSets, averageRir: rirValues.length ? rirValues.reduce((sum, value) => sum + value, 0) / rirValues.length : null, prs: [] };
 }
+
+const SET_GRID_COLUMNS = "2.2rem 1fr 1fr 1fr 3rem";
 
 export default function HistoryManager() {
   const [workouts, setWorkouts] = useState<WorkoutPayload[]>([]);
@@ -52,12 +55,154 @@ export default function HistoryManager() {
   async function saveCorrections() { if (!draft) return; setBusy(true); try { await createSafetySnapshot(`Before editing ${draft.name ?? "workout"}`); const rows = await db.workouts.orderBy("completedAt").reverse().toArray(); const corrected = recompute(draft); const value = JSON.stringify(rows.map((row) => row.id === corrected.id ? corrected : row.payload)); localStorage.setItem(HISTORY_KEY, value); await persistLegacyKey(HISTORY_KEY, value); setStatus("Corrections saved. Volume/e1RM were recalculated and old PR labels for this edited workout were cleared."); await refresh(corrected.id); } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save those corrections."); } finally { setBusy(false); } }
   async function deleteWorkout() { if (!draft) return; if (!armedDelete) { setArmedDelete(true); setStatus("Tap Delete again within 5 seconds to confirm. A safety snapshot will be created first."); window.setTimeout(() => setArmedDelete(false), 5000); return; } setBusy(true); try { await createSafetySnapshot(`Before deleting ${draft.name ?? "workout"}`); await removeWorkout(draft.id); setStatus("Workout deleted. Data Center rollback remains available."); await refresh(); } catch (error) { setStatus(error instanceof Error ? error.message : "Could not delete that workout."); } finally { setBusy(false); setArmedDelete(false); } }
 
-  return <main className="ti-shell ti-history"><header className="ti-topbar"><div><p className="ti-eyebrow">TRAINING JOURNAL · V1.3</p><h1>History</h1><p>Find any session fast, then inspect or correct it safely.</p></div><div className="ti-top-actions"><a href="/progress">Progress</a><a href="/gym">Gym</a></div></header>
-    <section className="ti-card ti-history-filters"><input aria-label="Search workouts" placeholder="Search workout or exercise…" value={query} onChange={(event) => setQuery(event.target.value)}/><select value={routineFilter} onChange={(event) => setRoutineFilter(event.target.value)}><option value="all">All routines</option>{routineOptions.map((item) => <option key={item}>{item}</option>)}</select><select value={exerciseFilter} onChange={(event) => setExerciseFilter(event.target.value)}><option value="all">All exercises</option>{exerciseOptions.map((item) => <option key={item}>{item}</option>)}</select><select value={range} onChange={(event) => setRange(event.target.value)}><option value="all">All time</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select><button className={prOnly ? "active" : ""} onClick={() => setPrOnly((value) => !value)}>🏆 PR only</button><span>{filtered.length} result{filtered.length === 1 ? "" : "s"}</span></section>
-    <div className="ti-status" role="status">{status}</div>
-    <section className="ti-history-layout"><aside className="ti-history-list">{filtered.map((workout) => <button key={workout.id} className={workout.id === selectedId ? "active" : ""} onClick={() => setSelectedId(workout.id)}><strong>{workout.name ?? "Workout"}</strong><span>{formatDate(workout.completedAt)}</span><small>{Number(workout.completedSets ?? 0)} sets · {Math.round(Number(workout.totalVolume ?? 0)).toLocaleString()} lb {workout.prs?.length ? `· 🏆 ${workout.prs.length}` : ""}</small></button>)}{!filtered.length && <p className="ti-empty">No workouts match these filters.</p>}</aside>
-      <section className="ti-card ti-history-detail">{draft ? <><div className="ti-section-head"><div><p className="ti-eyebrow">WORKOUT DETAIL</p><input className="ti-title-input" value={draft.name ?? "Workout"} onChange={(event) => setDraft((current) => current ? { ...current, name: event.target.value } : current)}/><span>{formatDate(draft.completedAt)} · {formatDuration(draft.durationSeconds)}</span></div><div className="ti-inline-actions"><button disabled={busy} onClick={saveCorrections}>Save corrections</button><button className="danger" disabled={busy} onClick={deleteWorkout}>{armedDelete ? "Tap again to delete" : "Delete"}</button></div></div>
-        <div className="ti-kpi-grid ti-history-kpis"><div className="ti-kpi"><span>Sets</span><strong>{Number(draft.completedSets ?? 0)}</strong></div><div className="ti-kpi"><span>Volume</span><strong>{Math.round(Number(draft.totalVolume ?? 0)).toLocaleString()}<small> lb</small></strong></div><div className="ti-kpi"><span>Avg RIR</span><strong>{typeof draft.averageRir === "number" ? draft.averageRir.toFixed(1) : "—"}</strong></div><div className="ti-kpi"><span>PRs</span><strong>{draft.prs?.length ?? 0}</strong></div></div>
-        <div className="ti-history-exercises">{(draft.exercises ?? []).map((exercise, exerciseIndex) => <details open key={`${exercise.id ?? exercise.name}-${exerciseIndex}`}><summary><strong>{exercise.name ?? exercise.id ?? `Exercise ${exerciseIndex + 1}`}</strong><span>{exercise.sets?.length ?? 0} sets</span></summary><div className="ti-history-set-head"><span>SET</span><span>LB</span><span>REPS</span><span>RIR</span><span>e1RM</span></div>{(exercise.sets ?? []).map((set, setIndex) => <div className="ti-history-set" key={`${exercise.id}-${setIndex}`}><strong>{setIndex + 1}</strong><input type="number" inputMode="decimal" value={set.weight ?? 0} onChange={(event) => updateSet(exerciseIndex, setIndex, "weight", event.target.value)}/><input type="number" inputMode="numeric" value={set.reps ?? 0} onChange={(event) => updateSet(exerciseIndex, setIndex, "reps", event.target.value)}/><input type="number" inputMode="decimal" min="0" max="10" step="0.5" value={set.rir ?? ""} onChange={(event) => updateSet(exerciseIndex, setIndex, "rir", event.target.value)}/><span>{Math.round(e1rm(Number(set.weight ?? 0), Number(set.reps ?? 0)))}</span></div>)}</details>)}</div></> : <p className="ti-empty">Choose a workout to inspect it.</p>}</section></section>
-  </main>;
+  return (
+    <div className="ds-stack">
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="TRAINING JOURNAL · V1.3"
+          eyebrowVolt
+          title="History"
+          lede="Find any session fast, then inspect or correct it safely."
+          action={
+            <div className="ds-cluster">
+              <a className="ds-btn ds-btn--ghost ds-btn--sm" href="/progress">Progress</a>
+              <a className="ds-btn ds-btn--ghost ds-btn--sm" href="/gym">Gym</a>
+            </div>
+          }
+        />
+      </div>
+
+      <Card className="ds-rise ds-rise--1">
+        <div className="ds-stack">
+          <Field label="Search workouts">
+            <TextInput aria-label="Search workouts" placeholder="Search workout or exercise…" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </Field>
+          <div className="ds-grid-2">
+            <Field label="Routine">
+              <SelectInput value={routineFilter} onChange={(event) => setRoutineFilter(event.target.value)}>
+                <option value="all">All routines</option>
+                {routineOptions.map((item) => <option key={item}>{item}</option>)}
+              </SelectInput>
+            </Field>
+            <Field label="Exercise">
+              <SelectInput value={exerciseFilter} onChange={(event) => setExerciseFilter(event.target.value)}>
+                <option value="all">All exercises</option>
+                {exerciseOptions.map((item) => <option key={item}>{item}</option>)}
+              </SelectInput>
+            </Field>
+          </div>
+          <div>
+            <div className="ds-field__label" style={{ marginBottom: 6 }}>Range</div>
+            <SegmentedControl
+              label="Date range"
+              options={[{ value: "all", label: "All time" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]}
+              value={range}
+              onChange={(value) => setRange(value)}
+            />
+          </div>
+          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+            <Chip selected={prOnly} onClick={() => setPrOnly((value) => !value)}>🏆 PR only</Chip>
+            <span className="ds-muted">{filtered.length} result{filtered.length === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+      </Card>
+
+      <Card tight className="ds-rise ds-rise--2">
+        <p className="ds-muted" role="status" style={{ margin: 0 }}>{status}</p>
+      </Card>
+
+      <div className="ds-rise ds-rise--3">
+        <div className="ds-stack">
+          <div>
+            {filtered.map((workout) => (
+              <button
+                type="button"
+                key={workout.id}
+                className="ds-row"
+                style={workout.id === selectedId ? { borderColor: "var(--ds-border-glow)" } : undefined}
+                onClick={() => setSelectedId(workout.id)}
+              >
+                <span className="ds-row__body">
+                  <span className="ds-row__title">{workout.name ?? "Workout"}</span>
+                  <span className="ds-row__sub" style={{ display: "block" }}>{formatDate(workout.completedAt)}</span>
+                  <span className="ds-row__sub" style={{ display: "block" }}>
+                    {Number(workout.completedSets ?? 0)} sets · {Math.round(Number(workout.totalVolume ?? 0)).toLocaleString()} lb{workout.prs?.length ? ` · 🏆 ${workout.prs.length}` : ""}
+                  </span>
+                </span>
+              </button>
+            ))}
+            {!filtered.length && <EmptyState title="No workouts match these filters." />}
+          </div>
+
+          <Card>
+            {draft ? (
+              <div className="ds-stack">
+                <div>
+                  <p className="ds-eyebrow">WORKOUT DETAIL</p>
+                  <div style={{ marginTop: 8 }}>
+                    <Field label="Workout name">
+                      <TextInput aria-label="Workout name" value={draft.name ?? "Workout"} onChange={(event) => setDraft((current) => current ? { ...current, name: event.target.value } : current)} />
+                    </Field>
+                  </div>
+                  <p className="ds-muted" style={{ margin: "8px 0 0" }}>{formatDate(draft.completedAt)} · {formatDuration(draft.durationSeconds)}</p>
+                </div>
+                <div className="ds-cluster">
+                  <Button variant="primary" disabled={busy} onClick={saveCorrections}>Save corrections</Button>
+                  <Button variant="danger" disabled={busy} onClick={deleteWorkout}>{armedDelete ? "Tap again to delete" : "Delete"}</Button>
+                </div>
+                <StatGrid cols={4}>
+                  <Stat label="Sets" value={Number(draft.completedSets ?? 0)} />
+                  <Stat label="Volume" value={<>{Math.round(Number(draft.totalVolume ?? 0)).toLocaleString()}<span style={{ fontSize: "0.7em" }}> lb</span></>} />
+                  <Stat label="Avg RIR" value={typeof draft.averageRir === "number" ? draft.averageRir.toFixed(1) : "—"} />
+                  <Stat label="PRs" value={draft.prs?.length ?? 0} tone="amber" />
+                </StatGrid>
+                <div className="ds-stack">
+                  {(draft.exercises ?? []).map((exercise, exerciseIndex) => (
+                    <Card tight key={`${exercise.id ?? exercise.name}-${exerciseIndex}`}>
+                      <details open>
+                        <summary style={{ cursor: "pointer" }}>
+                          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                            <strong>{exercise.name ?? exercise.id ?? `Exercise ${exerciseIndex + 1}`}</strong>
+                            <span className="ds-muted" style={{ fontSize: "0.8rem" }}>{exercise.sets?.length ?? 0} sets</span>
+                          </div>
+                        </summary>
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: SET_GRID_COLUMNS, gap: 8, alignItems: "center" }}>
+                            <span className="ds-field__label">Set</span>
+                            <span className="ds-field__label">Lb</span>
+                            <span className="ds-field__label">Reps</span>
+                            <span className="ds-field__label">RIR</span>
+                            <span className="ds-field__label">e1RM</span>
+                          </div>
+                          <div className="ds-stack" style={{ marginTop: 8 }}>
+                            {(exercise.sets ?? []).map((set, setIndex) => (
+                              <div key={`${exercise.id}-${setIndex}`} style={{ display: "grid", gridTemplateColumns: SET_GRID_COLUMNS, gap: 8, alignItems: "center" }}>
+                                <span style={{ fontWeight: 800 }}>{setIndex + 1}</span>
+                                <span className="ds-field__control">
+                                  <TextInput type="number" inputMode="decimal" aria-label={`Set ${setIndex + 1} weight in pounds`} value={set.weight ?? 0} onChange={(event) => updateSet(exerciseIndex, setIndex, "weight", event.target.value)} />
+                                </span>
+                                <span className="ds-field__control">
+                                  <TextInput type="number" inputMode="numeric" aria-label={`Set ${setIndex + 1} reps`} value={set.reps ?? 0} onChange={(event) => updateSet(exerciseIndex, setIndex, "reps", event.target.value)} />
+                                </span>
+                                <span className="ds-field__control">
+                                  <TextInput type="number" inputMode="decimal" min="0" max="10" step="0.5" aria-label={`Set ${setIndex + 1} RIR`} value={set.rir ?? ""} onChange={(event) => updateSet(exerciseIndex, setIndex, "rir", event.target.value)} />
+                                </span>
+                                <span className="ds-muted">{Math.round(e1rm(Number(set.weight ?? 0), Number(set.reps ?? 0)))}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <EmptyState title="Choose a workout to inspect it." />
+            )}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 }

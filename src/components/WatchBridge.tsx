@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  Button,
+  Card,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "../ui";
 
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
@@ -137,56 +147,68 @@ export default function WatchBridge() {
     }
   }
 
+  const go = (href: string) => { window.location.href = href; };
+
   return (
-    <main className="watch-shell">
-      <header className="watch-hero">
-        <div>
-          <p className="watch-eyebrow">V0.9 · APPLE WATCH</p>
-          <h1>Watch Session Bridge</h1>
-          <p>Move the active Gym Mode draft into the native iPhone app, control it live from Apple Watch, then import the updated session back without duplicating sets.</p>
-        </div>
-        <a className="watch-back" href="/gym">← Gym Mode</a>
-      </header>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="V0.9 · Apple Watch"
+          eyebrowVolt
+          title={<>Watch Session <span className="ds-accent">Bridge</span></>}
+          lede="Move the active Gym Mode draft into the native iPhone app, control it live from Apple Watch, then import the updated session back without duplicating sets."
+          action={<Button variant="ghost" size="sm" onClick={() => go("/gym")}>← Gym Mode</Button>}
+        />
+      </div>
 
-      <div className="watch-status" role="status">{status}</div>
+      <Card tight className="ds-rise ds-rise--1" role="status">
+        <span className="ds-muted">{status}</span>
+      </Card>
 
-      <section className="watch-grid">
-        <article className="watch-card">
-          <p className="watch-eyebrow">CURRENT DRAFT</p>
-          <h2>{session?.name ?? "No active workout"}</h2>
-          <div className="watch-stats">
-            <div><strong>{session?.exercises.length ?? 0}</strong><span>exercises</span></div>
-            <div><strong>{completed}</strong><span>sets done</span></div>
-            <div><strong>{total}</strong><span>total sets</span></div>
+      <div className="ds-grid-2 ds-rise ds-rise--2">
+        <Card>
+          <SectionHeader eyebrow="Current draft" title={session?.name ?? "No active workout"} />
+          <div style={{ marginTop: 12 }}>
+            <StatGrid cols={3}>
+              <Stat label="Exercises" value={session?.exercises.length ?? 0} />
+              <Stat label="Sets done" value={completed} />
+              <Stat label="Total sets" value={total} />
+            </StatGrid>
           </div>
-          <div className="watch-actions">
-            <button className="watch-button" type="button" onClick={exportSession}>Export to iPhone</button>
-            <label className="watch-button secondary" htmlFor="watch-session-import">Import Watch edits</label>
-            <input id="watch-session-import" className="watch-file" type="file" accept="application/json,.json" onChange={importSession} />
+          <div className="ds-cluster" style={{ marginTop: 14 }}>
+            <Button variant="primary" onClick={exportSession}>Export to iPhone</Button>
+            <label className="ds-btn ds-btn--secondary ds-btn--md" style={{ cursor: "pointer" }} htmlFor="watch-session-import">Import Watch edits</label>
+            <input
+              id="watch-session-import"
+              style={{ display: "none" }}
+              type="file"
+              accept="application/json,.json"
+              onChange={importSession}
+            />
           </div>
-        </article>
+        </Card>
 
-        <article className="watch-card">
-          <p className="watch-eyebrow">NATIVE FLOW</p>
-          <h2>Phone ↔ Watch live sync</h2>
-          <p>The SwiftUI companion uses WatchConnectivity for live messages and application-context fallback. Every set action has a stable action ID, so a delayed or repeated delivery cannot append a duplicate set.</p>
-          <p className="watch-note">Live Activities show current exercise, set progress, and rest countdown on the iPhone Lock Screen/Dynamic Island. Apple Watch gets the same state plus wrist controls and a rest-end haptic while the Watch app is active.</p>
-        </article>
-      </section>
+        <Card>
+          <SectionHeader eyebrow="Native flow" title="Phone ↔ Watch live sync" />
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>The SwiftUI companion uses WatchConnectivity for live messages and application-context fallback. Every set action has a stable action ID, so a delayed or repeated delivery cannot append a duplicate set.</p>
+          <p className="ds-muted" style={{ margin: "8px 0 0" }}>Live Activities show current exercise, set progress, and rest countdown on the iPhone Lock Screen/Dynamic Island. Apple Watch gets the same state plus wrist controls and a rest-end haptic while the Watch app is active.</p>
+        </Card>
+      </div>
 
       {session && (
-        <section className="watch-card" style={{ marginTop: 14 }}>
-          <p className="watch-eyebrow">SESSION PREVIEW</p>
-          <div className="watch-list">
+        <Card className="ds-rise ds-rise--3">
+          <SectionHeader eyebrow="Session preview" title="Planned exercises" />
+          <div className="ds-stack" style={{ marginTop: 12 }}>
             {session.exercises.map((exercise, index) => (
-              <div className="watch-row" key={exercise.id}>
-                <strong>{index + 1}. {exercise.name}</strong>
-                <span>{exercise.sets.filter((set) => set.completed).length}/{exercise.sets.length} sets · {exercise.restSeconds}s rest</span>
-              </div>
+              <ListRow
+                key={exercise.id}
+                title={<strong>{index + 1}. {exercise.name}</strong>}
+                sub={`${exercise.sets.filter((set) => set.completed).length}/${exercise.sets.length} sets · ${exercise.restSeconds}s rest`}
+              />
             ))}
           </div>
-        </section>
+        </Card>
       )}
-    </main>
+    </PageShell>
   );
 }

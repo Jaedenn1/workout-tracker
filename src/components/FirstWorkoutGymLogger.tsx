@@ -18,6 +18,29 @@ import {
 } from "../lib/progression";
 import { READINESS_KEY, safeArray, type ReadinessRecord } from "../lib/trainingIntelligence";
 import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  Field,
+  IconButton,
+  ListRow,
+  PageHeader,
+  PageShell,
+  ProgressBar,
+  SectionHeader,
+  SelectInput,
+  Sheet,
+  Stat,
+  StatGrid,
+  Stepper,
+  TextAreaInput,
+  TextInput,
+  TimerFace,
+} from "../ui";
+import {
   beatLastTimeTarget,
   completedWorkoutComparison,
   liveMatchedDelta,
@@ -1228,320 +1251,559 @@ export default function FirstWorkoutGymLogger() {
   }
 
   if (!hydrated) {
-    return <main className="gym-shell"><p className="gym-muted">Loading workout…</p></main>;
+    return (
+      <PageShell>
+        <p className="ds-muted">Loading workout…</p>
+      </PageShell>
+    );
   }
 
   return (
-    <main className={`gym-shell gym-v12 ${sessionActive && pausedAt ? "session-paused" : ""}`}>
-      <header className="gym-hero gym-v12-hero">
-        <div>
-          <p className="gym-eyebrow">TRAINING INTELLIGENCE</p>
-          <h1>{activeRoutine.name}</h1>
-          <p className="gym-muted">Log the set in front of you. Everything else stays one tap deeper.</p>
-        </div>
-        <div className="gym-v12-session">
-          <span>{!sessionActive ? "READY" : pausedAt ? "PAUSED" : "SESSION"}</span>
-          <strong>{sessionActive ? formatDuration(elapsed) : "0:00"}</strong>
-          <small>{!sessionActive ? "Timer starts with Start or your first logged set" : `${savedAt ? "Saved locally ✓" : "Local-first"}${wakeLockActive ? " · screen awake" : ""}`}</small>
-          <div className="gym-session-actions">
-            {!sessionActive ? (
-              <button className="resume" onClick={startWorkout}>▶ Start workout</button>
-            ) : (
-              <button className={pausedAt ? "resume" : "pause"} onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</button>
-            )}
-            <details className="gym-session-menu">
-              <summary>Session menu <span>⌄</span></summary>
-              <div>
-                <strong>Session controls</strong>
-                {sessionActive ? (
-                  <>
-                    <p>Canceling discards this in-progress workout and does not save it to History.</p>
-                    <button className={`danger ${cancelArmed ? "armed" : ""}`} onClick={cancelWorkout}>
-                      {cancelArmed ? "Tap again to discard" : "Cancel workout"}
-                    </button>
-                  </>
-                ) : (
-                  <p>No workout is running. Start when you are ready.</p>
-                )}
-              </div>
-            </details>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="TRAINING INTELLIGENCE"
+          eyebrowVolt
+          title={activeRoutine.name}
+          lede="Log the set in front of you. Everything else stays one tap deeper."
+        />
+      </div>
+
+      <Card className="ds-rise ds-rise--1">
+        <div className="ds-stack">
+          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+            <Badge tone={sessionActive ? (pausedAt ? "amber" : "volt") : "neutral"} dot>
+              {!sessionActive ? "READY" : pausedAt ? "PAUSED" : "SESSION"}
+            </Badge>
+            <span className="ds-muted" style={{ fontSize: "0.78rem" }}>
+              {!sessionActive
+                ? "Timer starts with Start or your first logged set"
+                : `${savedAt ? "Saved locally ✓" : "Local-first"}${wakeLockActive ? " · screen awake" : ""}`}
+            </span>
           </div>
+          <TimerFace
+            digits={sessionActive ? formatDuration(elapsed) : "0:00"}
+            label="WORKOUT TIME"
+            pulse={sessionActive && !pausedAt}
+          />
+          <div>
+            {!sessionActive ? (
+              <Button variant="primary" size="lg" block onClick={startWorkout}>▶ Start workout</Button>
+            ) : (
+              <Button variant="secondary" size="lg" block onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</Button>
+            )}
+          </div>
+          <details>
+            <summary className="ds-btn ds-btn--ghost" style={{ width: "100%", justifyContent: "space-between" }}>
+              Session menu <span>⌄</span>
+            </summary>
+            <div className="ds-stack" style={{ marginTop: 12 }}>
+              <strong>Session controls</strong>
+              {sessionActive ? (
+                <>
+                  <p className="ds-muted" style={{ margin: 0 }}>
+                    Canceling discards this in-progress workout and does not save it to History.
+                  </p>
+                  <Button variant="danger" size="sm" onClick={cancelWorkout}>
+                    {cancelArmed ? "Tap again to discard" : "Cancel workout"}
+                  </Button>
+                </>
+              ) : (
+                <p className="ds-muted" style={{ margin: 0 }}>No workout is running. Start when you are ready.</p>
+              )}
+            </div>
+          </details>
         </div>
-      </header>
+      </Card>
 
       {sessionActive && pausedAt && (
-        <section className="gym-pause-banner">
-          <div><strong>Session paused</strong><span>Workout time and rest time are frozen.</span></div>
-          <button onClick={togglePause}>Resume session</button>
-        </section>
+        <Card tight className="ds-rise">
+          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+            <div>
+              <strong>Session paused</strong>
+              <p className="ds-muted" style={{ margin: "4px 0 0" }}>Workout time and rest time are frozen.</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={togglePause}>Resume session</Button>
+          </div>
+        </Card>
       )}
 
-      <section className="gym-v12-overview">
-        <label className="gym-routine-select">
-          <span>Routine</span>
-          <select value={activeRoutineId} onChange={(event) => switchRoutine(event.target.value)}>
-            {routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}
-          </select>
-        </label>
-        <div className="gym-v12-progress">
-          <div><span>Workout progress</span><strong>{stats.completedAll}/{stats.totalSets} sets</strong></div>
-          <div className="gym-progress-track"><i style={{ width: `${stats.percent}%` }} /></div>
-          <small>{stats.percent}% complete · {Math.round(stats.volume).toLocaleString()} lb working volume</small>
+      <Card tight className="ds-rise ds-rise--2">
+        <div className="ds-stack">
+          <Field label="Routine">
+            <SelectInput value={activeRoutineId} onChange={(event) => switchRoutine(event.target.value)}>
+              {routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}
+            </SelectInput>
+          </Field>
+          <div>
+            <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+              <span className="ds-field__label">Workout progress</span>
+              <strong>{stats.completedAll}/{stats.totalSets} sets</strong>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <ProgressBar
+                value={stats.totalSets ? stats.completedAll / stats.totalSets : 0}
+                label="Workout progress"
+              />
+            </div>
+            <p className="ds-muted" style={{ margin: "8px 0 0", fontSize: "0.8rem" }}>
+              {stats.percent}% complete · {Math.round(stats.volume).toLocaleString()} lb working volume
+            </p>
+          </div>
         </div>
-      </section>
+      </Card>
 
       {readinessNote && readinessNote.tone !== "good" && (
-        <section className={`flow-readiness flow-${readinessNote.tone}`}>
-          <div><span>READINESS</span><strong>{readinessNote.title}</strong></div>
-          <p>{readinessNote.message}</p>
-        </section>
+        <Card tight className="ds-rise">
+          <div className="ds-stack">
+            <Badge tone={readinessNote.tone === "caution" ? "amber" : "blue"} dot>READINESS</Badge>
+            <div>
+              <strong>{readinessNote.title}</strong>
+              <p className="ds-muted" style={{ margin: "4px 0 0" }}>{readinessNote.message}</p>
+            </div>
+          </div>
+        </Card>
       )}
 
       {previousRoutineWorkout && (
-        <section className="flow-live-compare">
-          <div>
-            <span>LIVE VS LAST {activeRoutine.name.toUpperCase()}</span>
-            <strong>{liveDelta ? `${liveDelta.matchedSets} matched sets` : "Waiting for your first completed set"}</strong>
-          </div>
-          {liveDelta ? (
-            <div className="flow-live-metrics">
-              <span><b>{liveDelta.repDelta >= 0 ? "+" : ""}{liveDelta.repDelta}</b> reps</span>
-              <span><b>{liveDelta.volumeDelta >= 0 ? "+" : ""}{Math.round(liveDelta.volumeDelta).toLocaleString()}</b> lb</span>
-              <span><b>{liveDelta.e1rmDelta == null ? "—" : `${liveDelta.e1rmDelta >= 0 ? "+" : ""}${Math.round(liveDelta.e1rmDelta)}`}</b> e1RM</span>
+        <Card tight className="ds-rise">
+          <div className="ds-stack">
+            <div>
+              <p className="ds-eyebrow" style={{ margin: 0 }}>LIVE VS LAST {activeRoutine.name.toUpperCase()}</p>
+              <strong>{liveDelta ? `${liveDelta.matchedSets} matched sets` : "Waiting for your first completed set"}</strong>
             </div>
-          ) : <small>Comparison activates as working sets are completed.</small>}
-        </section>
-      )}
-
-      <section className={`gym-rest-strip ${restRemaining ? "active" : ""} ${pausedAt ? "paused" : ""}`}>
-        <div>
-          <span>{restRemaining ? (pausedAt ? "REST PAUSED" : "REST") : "REST TIMER"}</span>
-          <strong>{restRemaining ? formatDuration(restRemaining) : "Ready"}</strong>
-        </div>
-        <div className="gym-rest-actions">
-          {restRemaining > 0 && <button onClick={() => setRestRemaining((value) => value + 30)}>+30</button>}
-          {restRemaining > 0 && <button onClick={skipRest}>Skip</button>}
-          <label><input type="checkbox" checked={restSound} onChange={(event) => setRestSound(event.target.checked)} /> Sound</label>
-        </div>
-      </section>
-
-      <section className="gym-tools-row gym-v12-tools" aria-label="Workout tools">
-        <button className={panel === "exercise" ? "active" : ""} onClick={() => setPanel((current) => current === "exercise" ? null : "exercise")}>＋ Exercise <span>⌄</span></button>
-        <button className={panel === "custom" ? "active" : ""} onClick={() => setPanel((current) => current === "custom" ? null : "custom")}>✚ Custom <span>⌄</span></button>
-        <button className={panel === "plate" ? "active" : ""} onClick={() => setPanel((current) => current === "plate" ? null : "plate")}>◉ Plates <span>⌄</span></button>
-        <button className={panel === "warmup" ? "active" : ""} onClick={() => setPanel((current) => current === "warmup" ? null : "warmup")}>🔥 Warm-up <span>⌄</span></button>
-      </section>
-
-      {panel && (
-        <section className="gym-tool-dropdown">
-          <div className="gym-dropdown-head">
-            <div><p className="gym-eyebrow">WORKOUT TOOL</p><h2>{panel === "exercise" ? "Add exercise" : panel === "custom" ? "Custom exercise" : panel === "plate" ? "Plate calculator" : "Warm-up calculator"}</h2></div>
-            <button onClick={() => setPanel(null)}>Close</button>
+            {liveDelta ? (
+              <StatGrid cols={3}>
+                <Stat label="Reps" value={`${liveDelta.repDelta >= 0 ? "+" : ""}${liveDelta.repDelta}`} />
+                <Stat label="Volume lb" value={`${liveDelta.volumeDelta >= 0 ? "+" : ""}${Math.round(liveDelta.volumeDelta).toLocaleString()}`} />
+                <Stat
+                  label="e1RM"
+                  value={liveDelta.e1rmDelta == null ? "—" : `${liveDelta.e1rmDelta >= 0 ? "+" : ""}${Math.round(liveDelta.e1rmDelta)}`}
+                />
+              </StatGrid>
+            ) : (
+              <p className="ds-muted" style={{ margin: 0 }}>Comparison activates as working sets are completed.</p>
+            )}
           </div>
-
-          {panel === "exercise" && <>
-            <input className="gym-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exercise or muscle…" />
-            <div className="gym-library">{filteredDefinitions.map((definition) => <button key={definition.id} onClick={() => addDefinition(definition, true)}><span><strong>{definition.name}</strong><small>{definition.muscle} · {definition.repMin}–{definition.repMax}</small></span><b>+ Routine</b></button>)}</div>
-          </>}
-
-          {panel === "custom" && <div className="gym-custom-form">
-            <label>Name<input value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Plate-Loaded Row" /></label>
-            <label>Muscle<select value={customForm.muscle} onChange={(event) => setCustomForm((current) => ({ ...current, muscle: event.target.value as MuscleGroup }))}>{muscleOptions.map((muscle) => <option key={muscle}>{muscle}</option>)}</select></label>
-            <label>Rep min<input type="number" inputMode="numeric" value={customForm.repMin} onChange={(event) => setCustomForm((current) => ({ ...current, repMin: event.target.value }))} /></label>
-            <label>Rep max<input type="number" inputMode="numeric" value={customForm.repMax} onChange={(event) => setCustomForm((current) => ({ ...current, repMax: event.target.value }))} /></label>
-            <label>Increment<input type="number" inputMode="decimal" step="0.5" value={customForm.increment} onChange={(event) => setCustomForm((current) => ({ ...current, increment: event.target.value }))} /></label>
-            <label>Starting weight<input type="number" inputMode="decimal" value={customForm.fallbackWeight} onChange={(event) => setCustomForm((current) => ({ ...current, fallbackWeight: event.target.value }))} /></label>
-            <label>Sets<input type="number" inputMode="numeric" min="1" max="10" value={customForm.setCount} onChange={(event) => setCustomForm((current) => ({ ...current, setCount: event.target.value }))} /></label>
-            <label>Equipment<input value={customForm.equipment} onChange={(event) => setCustomForm((current) => ({ ...current, equipment: event.target.value }))} placeholder="Machine, cable, dumbbell…" /></label>
-            <button className="gym-primary" onClick={createCustomExercise}>Create + add to routine</button>
-          </div>}
-
-          {panel === "plate" && <div className="gym-calculator">
-            <div className="gym-calc-inputs"><label>Target lb<input type="number" inputMode="decimal" value={plateTarget} onChange={(event) => setPlateTarget(Number(event.target.value))} /></label><label>Bar lb<input type="number" inputMode="decimal" value={barWeight} onChange={(event) => setBarWeight(Number(event.target.value))} /></label></div>
-            <div className="gym-calc-result"><strong>{plate.perSide} lb per side</strong>{plate.result.length ? <p>{plate.result.map((item) => `${item.count}×${item.plate}`).join(" + ")} per side</p> : <p>Bar only / target below bar.</p>}{plate.remainder > 0.01 && <small>Remaining {plate.remainder} lb per side with this plate set.</small>}</div>
-          </div>}
-
-          {panel === "warmup" && <div className="gym-calculator">
-            <label className="gym-wide-label">Working weight<input type="number" inputMode="decimal" value={warmupWeight} onChange={(event) => setWarmupWeight(Number(event.target.value))} /></label>
-            <div className="gym-warmups">{warmups.map((warmup) => <div key={warmup.pct}><span>{warmup.pct}%</span><strong>{warmup.weight} lb × {warmup.reps}</strong></div>)}</div>
-            <small>Simple ramp-up template. Adjust it down if you are already warm.</small>
-          </div>}
-        </section>
+        </Card>
       )}
 
-      {notice && <div className="gym-notice">{notice}</div>}
+      <Card tight className="ds-rise ds-rise--2">
+        <div className="ds-stack">
+          <TimerFace
+            digits={restRemaining ? formatDuration(restRemaining) : "--:--"}
+            label={restRemaining ? (pausedAt ? "REST PAUSED" : "REST") : "REST TIMER"}
+            pulse={Boolean(restRemaining) && !pausedAt}
+          />
+          <div className="ds-cluster" style={{ justifyContent: "center" }}>
+            {restRemaining > 0 && <Button variant="secondary" size="sm" onClick={() => setRestRemaining((value) => value + 30)}>+30</Button>}
+            {restRemaining > 0 && <Button variant="ghost" size="sm" onClick={skipRest}>Skip</Button>}
+            <label className="ds-muted" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "0.85rem" }}>
+              <input type="checkbox" checked={restSound} onChange={(event) => setRestSound(event.target.checked)} /> Sound
+            </label>
+          </div>
+        </div>
+      </Card>
 
-      <section className="gym-stack gym-v12-stack">
-        {exercises.map((exercise, exerciseIndex) => {
-          const currentBest = bestEstimatedOneRepMax(workingPerformance(exercise.sets));
-          const priorBest = historicalBest(history, exercise.id);
-          const isPr = priorBest > 0 && currentBest > priorBest + 0.5;
-          const next = exercises[exerciseIndex + 1];
-          const pairedWithNext = Boolean(next && exercise.supersetGroup && exercise.supersetGroup === next.supersetGroup);
-          const persistentExtra = (extras[activeRoutine.id] ?? []).includes(exercise.id);
-          const completedCount = exercise.sets.filter((set) => set.completed).length;
-          const isCollapsed = Boolean(collapsed[exercise.id]);
-          const beatTarget = beatLastTimeTarget(exercise);
-          const nextCue = nextSetCue(exercise);
-          const recentSessions = recentExerciseHistory(history, exercise.id, 3);
+      <div className="ds-rise ds-rise--3" role="group" aria-label="Workout tools">
+        <ChipRow>
+          <Chip selected={panel === "exercise"} onClick={() => setPanel((current) => current === "exercise" ? null : "exercise")}>＋ Exercise <span>⌄</span></Chip>
+          <Chip selected={panel === "custom"} onClick={() => setPanel((current) => current === "custom" ? null : "custom")}>✚ Custom <span>⌄</span></Chip>
+          <Chip selected={panel === "plate"} onClick={() => setPanel((current) => current === "plate" ? null : "plate")}>◉ Plates <span>⌄</span></Chip>
+          <Chip selected={panel === "warmup"} onClick={() => setPanel((current) => current === "warmup" ? null : "warmup")}>🔥 Warm-up <span>⌄</span></Chip>
+        </ChipRow>
+      </div>
 
-          return (
-            <article
-              className={`gym-card gym-v12-card ${exercise.supersetGroup ? "gym-superset-card" : ""} ${draggingExercise === exercise.id ? "dragging" : ""}`}
-              key={`${exercise.id}-${exerciseIndex}`}
-              data-exercise-index={exerciseIndex}
-            >
-              <div className="gym-v12-card-head">
-                <button
-                  className="gym-drag-handle"
-                  aria-label={`Reorder ${exercise.name}`}
-                  title="Hold and drag to reorder"
-                  onPointerDown={(event) => startDrag(exerciseIndex, event)}
-                  onPointerMove={dragMove}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
-                >⋮⋮</button>
-                <button className="gym-card-toggle" onClick={() => setCollapsed((current) => ({ ...current, [exercise.id]: !isCollapsed }))}>
-                  <span>
-                    <small>{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax} REPS</small>
-                    <strong>{exercise.name}</strong>
-                    <em>{completedCount}/{exercise.sets.length} sets · Prev {exercise.previous[0] ? previousLabel(exercise.previous[0]) : "none"}</em>
-                  </span>
-                  <b>{isCollapsed ? "⌄" : "⌃"}</b>
-                </button>
+      <Sheet
+        open={panel !== null}
+        onClose={() => setPanel(null)}
+        title={panel === "exercise" ? "Add exercise" : panel === "custom" ? "Custom exercise" : panel === "plate" ? "Plate calculator" : "Warm-up calculator"}
+      >
+        {panel === "exercise" && (
+          <div className="ds-stack">
+            <Field label="Search">
+              <TextInput value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exercise or muscle…" />
+            </Field>
+            {filteredDefinitions.length === 0 ? (
+              <EmptyState title="No matches" body="Try a different exercise or muscle name." />
+            ) : (
+              <div className="ds-stack">
+                {filteredDefinitions.map((definition) => (
+                  <ListRow
+                    key={definition.id}
+                    title={definition.name}
+                    sub={`${definition.muscle} · ${definition.repMin}–${definition.repMax}`}
+                    trailing={<strong>+ Routine</strong>}
+                    onClick={() => addDefinition(definition, true)}
+                  />
+                ))}
               </div>
-
-              {!isCollapsed && (
-                <div className="gym-card-body">
-                  <div className="gym-badges gym-v12-badges">
-                    {isPr && <span>🏆 PR</span>}
-                    {exercise.supersetGroup && <span>↔ SUPERSET</span>}
-                    <span>{actionLabel(exercise.progressionAction)}</span>
-                  </div>
-
-                  <div className="flow-progression-card">
-                    <span>{actionLabel(exercise.progressionAction)}</span>
-                    <strong>{exercise.recommendation}</strong>
-                  </div>
-
-                  <div className="flow-beat-card">
-                    <div>
-                      <span>BEAT LAST TIME</span>
-                      <strong>{beatTarget.label}</strong>
-                      <small>{beatTarget.detail}</small>
-                    </div>
-                    <button onClick={() => useAllPrevious(exercise.id)} disabled={!exercise.previous.length}>Use all previous</button>
-                  </div>
-
-                  {nextCue && (
-                    <div className="flow-next-cue">
-                      <span>NEXT · SET {nextCue.setNumber}</span>
-                      <strong>{nextCue.target}</strong>
-                      <small>Previous: {nextCue.previous} · aim for honest RIR, not forced reps.</small>
-                    </div>
-                  )}
-
-                  <details className="flow-history-dropdown">
-                    <summary>Last 3 sessions <span>{recentSessions.length ? `${recentSessions.length} logged` : "No history"}</span></summary>
-                    <div className="flow-history-list">
-                      {recentSessions.length ? recentSessions.map((row) => (
-                        <div className="flow-history-row" key={row.workoutId}>
-                          <span>{new Date(row.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-                          <strong>{row.sets.map((set) => `${set.weight}×${set.reps}${set.rir == null ? "" : ` @${set.rir}`}`).join(" · ")}</strong>
-                        </div>
-                      )) : <p>No previous sessions for this exercise yet.</p>}
-                    </div>
-                  </details>
-
-                  <details className="gym-options-dropdown">
-                    <summary>Exercise options <span>rest · notes · substitute · reorder</span></summary>
-                    <div className="gym-exercise-controls">
-                      <label>Rest <input type="number" inputMode="numeric" min="15" max="600" step="15" value={exercise.restSeconds} onChange={(event) => updateRest(exercise.id, Number(event.target.value))} /> sec</label>
-                      <label>Substitute <select value="" onChange={(event) => substituteExercise(exerciseIndex, event.target.value)}><option value="">Choose…</option>{allDefinitions.filter((definition) => definition.id !== exercise.id).map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}</select></label>
-                      {next && <button onClick={() => pairWithNext(exerciseIndex)}>{pairedWithNext ? "Unpair superset" : "Superset + next"}</button>}
-                      <button onClick={() => moveExercise(exerciseIndex, exerciseIndex - 1)} disabled={exerciseIndex === 0}>↑ Move up</button>
-                      <button onClick={() => moveExercise(exerciseIndex, exerciseIndex + 1)} disabled={exerciseIndex === exercises.length - 1}>↓ Move down</button>
-                      <button onClick={() => skipToday(exerciseIndex)}>Skip today</button>
-                      {persistentExtra && <button className="danger" onClick={() => removeFromRoutine(exercise.id)}>Remove from routine</button>}
-                    </div>
-                    <textarea className="gym-note" value={exercise.note} onChange={(event) => updateNote(exercise.id, event.target.value)} placeholder="Seat position, grip, tempo, cues…" />
-                  </details>
-
-                  <div className="gym-set-header"><span>TYPE</span><span>PREV</span><span>LB</span><span>REPS</span><span>RIR</span><span>✓</span></div>
-                  <div className="gym-set-list">
-                    {exercise.sets.map((set, setIndex) => {
-                      const previous = exercise.previous[setIndex];
-                      const editing = Boolean(editingCompleted[set.id]);
-                      const locked = set.completed && !editing;
-                      return (
-                        <div className={`gym-set ${set.completed ? "done" : ""} ${editing ? "editing" : ""} type-${set.type}`} key={set.id}>
-                          <select aria-label={`${exercise.name} set type`} value={set.type} disabled={locked} onChange={(event) => updateSetType(exercise.id, set.id, event.target.value as SetType)}>{setTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
-                          <span className="gym-prev">{previousLabel(previous)}</span>
-                          <input id={`set-weight-${set.id}`} data-set-focus={set.id} aria-label={`${exercise.name} set ${setIndex + 1} weight`} type="number" inputMode="decimal" readOnly={locked} value={set.weight ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "weight", event.target.value)} />
-                          <input aria-label={`${exercise.name} set ${setIndex + 1} reps`} type="number" inputMode="numeric" readOnly={locked} value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)} />
-                          <input aria-label={`${exercise.name} set ${setIndex + 1} RIR`} type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="—" readOnly={locked} value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)} />
-                          <button className="gym-check" onClick={() => toggleSet(exercise.id, set.id, setIndex)} aria-label={set.completed ? "Reopen completed set" : "Complete set"}>{set.completed ? "✓" : ""}</button>
-                          <div className="gym-quick gym-v12-quick">
-                            {set.completed && <button onClick={() => setEditingCompleted((current) => ({ ...current, [set.id]: !editing }))}>{editing ? "Done" : "Edit"}</button>}
-                            {!locked && <button onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Use previous</button>}
-                            <button className="danger" onClick={() => removeSet(exercise.id, set.id)}>Delete</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button className="gym-add-set" onClick={() => addSet(exercise.id)}>＋ Add set</button>
-                </div>
-              )}
-            </article>
-          );
-        })}
-      </section>
-
-      <details className="gym-session-note-dropdown">
-        <summary>Session note <span>{sessionNote ? "Saved" : "Optional"}</span></summary>
-        <textarea value={sessionNote} onChange={(event) => setSessionNote(event.target.value)} placeholder="How did the session feel? Equipment changes? Anything to remember next time?" />
-      </details>
-
-      <section className="gym-finish gym-v12-finish">
-        <div><p className="gym-eyebrow">SESSION</p><h2>Finish workout</h2><p className="gym-muted">Review your progress, then hold to save so an accidental tap cannot end the workout.</p></div>
-        <button onClick={() => setFinishOpen((current) => !current)}>Finish workout <span>⌄</span></button>
-        {finishOpen && (
-          <div className="gym-finish-dropdown">
-            <div><strong>{stats.completedAll}/{stats.totalSets} sets completed</strong><span>{formatDuration(elapsed)} active time · {Math.round(stats.volume).toLocaleString()} lb volume</span></div>
-            <button
-              className={`gym-hold-finish ${finishHolding ? "holding" : ""}`}
-              onPointerDown={beginFinishHold}
-              onPointerUp={cancelFinishHold}
-              onPointerLeave={cancelFinishHold}
-              onPointerCancel={cancelFinishHold}
-            >{finishHolding ? "Keep holding…" : "Hold to finish & save"}</button>
-            <button className="gym-continue" onClick={() => setFinishOpen(false)}>Continue workout</button>
+            )}
           </div>
         )}
+
+        {panel === "custom" && (
+          <div className="ds-stack">
+            <Field label="Name">
+              <TextInput value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Plate-Loaded Row" />
+            </Field>
+            <Field label="Muscle">
+              <SelectInput value={customForm.muscle} onChange={(event) => setCustomForm((current) => ({ ...current, muscle: event.target.value as MuscleGroup }))}>
+                {muscleOptions.map((muscle) => <option key={muscle}>{muscle}</option>)}
+              </SelectInput>
+            </Field>
+            <div className="ds-grid-2">
+              <Field label="Rep min">
+                <TextInput type="number" inputMode="numeric" value={customForm.repMin} onChange={(event) => setCustomForm((current) => ({ ...current, repMin: event.target.value }))} />
+              </Field>
+              <Field label="Rep max">
+                <TextInput type="number" inputMode="numeric" value={customForm.repMax} onChange={(event) => setCustomForm((current) => ({ ...current, repMax: event.target.value }))} />
+              </Field>
+            </div>
+            <div className="ds-grid-2">
+              <Field label="Increment">
+                <TextInput type="number" inputMode="decimal" step="0.5" value={customForm.increment} onChange={(event) => setCustomForm((current) => ({ ...current, increment: event.target.value }))} />
+              </Field>
+              <Field label="Starting weight">
+                <TextInput type="number" inputMode="decimal" value={customForm.fallbackWeight} onChange={(event) => setCustomForm((current) => ({ ...current, fallbackWeight: event.target.value }))} />
+              </Field>
+            </div>
+            <div className="ds-grid-2">
+              <Field label="Sets">
+                <TextInput type="number" inputMode="numeric" min="1" max="10" value={customForm.setCount} onChange={(event) => setCustomForm((current) => ({ ...current, setCount: event.target.value }))} />
+              </Field>
+              <Field label="Equipment">
+                <TextInput value={customForm.equipment} onChange={(event) => setCustomForm((current) => ({ ...current, equipment: event.target.value }))} placeholder="Machine, cable, dumbbell…" />
+              </Field>
+            </div>
+            <Button variant="primary" block onClick={createCustomExercise}>Create + add to routine</Button>
+          </div>
+        )}
+
+        {panel === "plate" && (
+          <div className="ds-stack">
+            <div className="ds-grid-2">
+              <Stepper
+                label="Target"
+                unit="lb"
+                value={String(plateTarget)}
+                editable
+                inputProps={{ type: "number", inputMode: "decimal", onChange: (event) => setPlateTarget(Number(event.target.value)) }}
+                onDecrement={() => setPlateTarget((value) => Math.max(0, value - 5))}
+                onIncrement={() => setPlateTarget((value) => value + 5)}
+              />
+              <Stepper
+                label="Bar"
+                unit="lb"
+                value={String(barWeight)}
+                editable
+                inputProps={{ type: "number", inputMode: "decimal", onChange: (event) => setBarWeight(Number(event.target.value)) }}
+                onDecrement={() => setBarWeight((value) => Math.max(0, value - 2.5))}
+                onIncrement={() => setBarWeight((value) => value + 2.5)}
+              />
+            </div>
+            <StatGrid cols={2}>
+              <Stat label="Per side" value={`${plate.perSide} lb`} />
+              <Stat
+                label="Plates per side"
+                value={plate.result.length ? plate.result.map((item) => `${item.count}×${item.plate}`).join(" + ") : "Bar only"}
+                sub={plate.result.length ? undefined : "Target below bar"}
+              />
+            </StatGrid>
+            {plate.remainder > 0.01 && (
+              <p className="ds-muted" style={{ margin: 0 }}>Remaining {plate.remainder} lb per side with this plate set.</p>
+            )}
+          </div>
+        )}
+
+        {panel === "warmup" && (
+          <div className="ds-stack">
+            <Stepper
+              label="Working weight"
+              unit="lb"
+              value={String(warmupWeight)}
+              editable
+              inputProps={{ type: "number", inputMode: "decimal", onChange: (event) => setWarmupWeight(Number(event.target.value)) }}
+              onDecrement={() => setWarmupWeight((value) => Math.max(0, value - 5))}
+              onIncrement={() => setWarmupWeight((value) => value + 5)}
+            />
+            <div className="ds-stack">
+              {warmups.map((warmup) => (
+                <ListRow key={warmup.pct} title={`${warmup.pct}%`} sub={`${warmup.weight} lb × ${warmup.reps}`} />
+              ))}
+            </div>
+            <p className="ds-muted" style={{ margin: 0 }}>Simple ramp-up template. Adjust it down if you are already warm.</p>
+          </div>
+        )}
+      </Sheet>
+
+      {notice && (
+        <div role="status" className="ds-card ds-card--tight ds-rise">
+          <span className="ds-muted">{notice}</span>
+        </div>
+      )}
+
+      <section className="ds-rise ds-rise--2" aria-label="Exercises">
+        <div className="ds-stack">
+          {exercises.map((exercise, exerciseIndex) => {
+            const currentBest = bestEstimatedOneRepMax(workingPerformance(exercise.sets));
+            const priorBest = historicalBest(history, exercise.id);
+            const isPr = priorBest > 0 && currentBest > priorBest + 0.5;
+            const next = exercises[exerciseIndex + 1];
+            const pairedWithNext = Boolean(next && exercise.supersetGroup && exercise.supersetGroup === next.supersetGroup);
+            const persistentExtra = (extras[activeRoutine.id] ?? []).includes(exercise.id);
+            const completedCount = exercise.sets.filter((set) => set.completed).length;
+            const isCollapsed = Boolean(collapsed[exercise.id]);
+            const beatTarget = beatLastTimeTarget(exercise);
+            const nextCue = nextSetCue(exercise);
+            const recentSessions = recentExerciseHistory(history, exercise.id, 3);
+
+            return (
+              <Card
+                key={`${exercise.id}-${exerciseIndex}`}
+                data-exercise-index={exerciseIndex}
+              >
+                <div className="ds-stack">
+                  <div className="ds-cluster" style={{ alignItems: "center" }}>
+                    <IconButton
+                      small
+                      label={`Reorder ${exercise.name}`}
+                      title="Hold and drag to reorder"
+                      onPointerDown={(event) => startDrag(exerciseIndex, event)}
+                      onPointerMove={dragMove}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                    >⋮⋮</IconButton>
+                    <button
+                      type="button"
+                      className="ds-row"
+                      style={{ flex: 1 }}
+                      onClick={() => setCollapsed((current) => ({ ...current, [exercise.id]: !isCollapsed }))}
+                      aria-expanded={!isCollapsed}
+                    >
+                      <span className="ds-row__body">
+                        <span className="ds-eyebrow" style={{ display: "block" }}>{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax} REPS</span>
+                        <span className="ds-row__title">{exercise.name}</span>
+                        <span className="ds-row__sub" style={{ display: "block" }}>{completedCount}/{exercise.sets.length} sets · Prev {exercise.previous[0] ? previousLabel(exercise.previous[0]) : "none"}</span>
+                      </span>
+                      <span className="ds-row__trail">{isCollapsed ? "⌄" : "⌃"}</span>
+                    </button>
+                  </div>
+
+                  {!isCollapsed && (
+                    <div className="ds-stack">
+                      <div className="ds-cluster">
+                        {isPr && <Badge tone="amber">🏆 PR</Badge>}
+                        {exercise.supersetGroup && <Badge tone="blue">↔ SUPERSET</Badge>}
+                        <Badge>{actionLabel(exercise.progressionAction)}</Badge>
+                      </div>
+
+                      <Card tight>
+                        <div className="ds-cluster"><Badge>{actionLabel(exercise.progressionAction)}</Badge></div>
+                        <p className="ds-muted" style={{ margin: "8px 0 0", color: "var(--ds-text-1)", fontWeight: 700 }}>{exercise.recommendation}</p>
+                      </Card>
+
+                      <Card tight>
+                        <div className="ds-stack">
+                          <div>
+                            <p className="ds-eyebrow" style={{ margin: 0 }}>BEAT LAST TIME</p>
+                            <strong>{beatTarget.label}</strong>
+                            <p className="ds-muted" style={{ margin: "4px 0 0" }}>{beatTarget.detail}</p>
+                          </div>
+                          <Button variant="secondary" size="sm" onClick={() => useAllPrevious(exercise.id)} disabled={!exercise.previous.length}>Use all previous</Button>
+                        </div>
+                      </Card>
+
+                      {nextCue && (
+                        <div>
+                          <p className="ds-eyebrow" style={{ margin: 0 }}>NEXT · SET {nextCue.setNumber}</p>
+                          <strong>{nextCue.target}</strong>
+                          <p className="ds-muted" style={{ margin: "4px 0 0" }}>Previous: {nextCue.previous} · aim for honest RIR, not forced reps.</p>
+                        </div>
+                      )}
+
+                      <details>
+                        <summary className="ds-btn ds-btn--ghost" style={{ width: "100%", justifyContent: "space-between" }}>
+                          Last 3 sessions <span>{recentSessions.length ? `${recentSessions.length} logged` : "No history"}</span>
+                        </summary>
+                        <div className="ds-stack" style={{ marginTop: 12 }}>
+                          {recentSessions.length ? recentSessions.map((row) => (
+                            <ListRow
+                              key={row.workoutId}
+                              title={new Date(row.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                              sub={row.sets.map((set) => `${set.weight}×${set.reps}${set.rir == null ? "" : ` @${set.rir}`}`).join(" · ")}
+                            />
+                          )) : <p className="ds-muted" style={{ margin: 0 }}>No previous sessions for this exercise yet.</p>}
+                        </div>
+                      </details>
+
+                      <details>
+                        <summary className="ds-btn ds-btn--ghost" style={{ width: "100%", justifyContent: "space-between" }}>
+                          Exercise options <span>rest · notes · substitute · reorder</span>
+                        </summary>
+                        <div className="ds-stack" style={{ marginTop: 12 }}>
+                          <div className="ds-grid-2">
+                            <Field label="Rest" suffix="sec">
+                              <TextInput type="number" inputMode="numeric" min="15" max="600" step="15" value={exercise.restSeconds} onChange={(event) => updateRest(exercise.id, Number(event.target.value))} />
+                            </Field>
+                            <Field label="Substitute">
+                              <SelectInput value="" onChange={(event) => substituteExercise(exerciseIndex, event.target.value)}>
+                                <option value="">Choose…</option>
+                                {allDefinitions.filter((definition) => definition.id !== exercise.id).map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}
+                              </SelectInput>
+                            </Field>
+                          </div>
+                          <div className="ds-cluster">
+                            {next && <Button variant="ghost" size="sm" onClick={() => pairWithNext(exerciseIndex)}>{pairedWithNext ? "Unpair superset" : "Superset + next"}</Button>}
+                            <Button variant="ghost" size="sm" onClick={() => moveExercise(exerciseIndex, exerciseIndex - 1)} disabled={exerciseIndex === 0}>↑ Move up</Button>
+                            <Button variant="ghost" size="sm" onClick={() => moveExercise(exerciseIndex, exerciseIndex + 1)} disabled={exerciseIndex === exercises.length - 1}>↓ Move down</Button>
+                            <Button variant="ghost" size="sm" onClick={() => skipToday(exerciseIndex)}>Skip today</Button>
+                            {persistentExtra && <Button variant="danger" size="sm" onClick={() => removeFromRoutine(exercise.id)}>Remove from routine</Button>}
+                          </div>
+                          <Field label="Exercise note">
+                            <TextAreaInput value={exercise.note} onChange={(event) => updateNote(exercise.id, event.target.value)} placeholder="Seat position, grip, tempo, cues…" />
+                          </Field>
+                        </div>
+                      </details>
+
+                      <div className="ds-stack">
+                        {exercise.sets.map((set, setIndex) => {
+                          const previous = exercise.previous[setIndex];
+                          const editing = Boolean(editingCompleted[set.id]);
+                          const locked = set.completed && !editing;
+                          return (
+                            <Card tight key={set.id}>
+                              <div className="ds-stack">
+                                <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                                  <span className="ds-field__control" style={{ maxWidth: 120 }}>
+                                    <SelectInput aria-label={`${exercise.name} set type`} value={set.type} disabled={locked} onChange={(event) => updateSetType(exercise.id, set.id, event.target.value as SetType)}>
+                                      {setTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                                    </SelectInput>
+                                  </span>
+                                  <span className="ds-muted" style={{ fontSize: "0.85rem" }}>Prev: {previousLabel(previous)}</span>
+                                  <IconButton
+                                    small
+                                    volt={set.completed}
+                                    label={set.completed ? "Reopen completed set" : "Complete set"}
+                                    onClick={() => toggleSet(exercise.id, set.id, setIndex)}
+                                  >{set.completed ? "✓" : ""}</IconButton>
+                                </div>
+                                <div className="ds-grid-2">
+                                  <Field label="Weight · lb">
+                                    <TextInput id={`set-weight-${set.id}`} data-set-focus={set.id} aria-label={`${exercise.name} set ${setIndex + 1} weight`} type="number" inputMode="decimal" readOnly={locked} value={set.weight ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "weight", event.target.value)} />
+                                  </Field>
+                                  <Field label="Reps">
+                                    <TextInput aria-label={`${exercise.name} set ${setIndex + 1} reps`} type="number" inputMode="numeric" readOnly={locked} value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)} />
+                                  </Field>
+                                </div>
+                                <Field label="RIR">
+                                  <TextInput aria-label={`${exercise.name} set ${setIndex + 1} RIR`} type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="—" readOnly={locked} value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)} />
+                                </Field>
+                                <div className="ds-cluster">
+                                  {set.completed && <Button variant="ghost" size="sm" onClick={() => setEditingCompleted((current) => ({ ...current, [set.id]: !editing }))}>{editing ? "Done" : "Edit"}</Button>}
+                                  {!locked && <Button variant="ghost" size="sm" onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Use previous</Button>}
+                                  <Button variant="danger" size="sm" onClick={() => removeSet(exercise.id, set.id)}>Delete</Button>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                      <Button variant="secondary" size="sm" block onClick={() => addSet(exercise.id)}>＋ Add set</Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       </section>
 
-      {lastSummary && (
-        <section className="gym-post-summary">
-          <div className="gym-dropdown-head"><div><p className="gym-eyebrow">WORKOUT SAVED</p><h2>{lastSummary.name}</h2></div><button onClick={() => setLastSummary(null)}>Close</button></div>
-          <div className="gym-summary-grid"><div><span>Sets</span><strong>{lastSummary.sets}</strong></div><div><span>Volume</span><strong>{Math.round(lastSummary.volume).toLocaleString()} lb</strong></div><div><span>Time</span><strong>{formatDuration(lastSummary.duration)}</strong></div><div><span>PRs</span><strong>{lastSummary.prs.length}</strong></div></div>
-          {lastSummary.prs.length > 0 && <p className="gym-summary-pr">🏆 {lastSummary.prs.join(" · ")}</p>}
-          {lastSummary.nextTarget && <p className="gym-summary-next"><span>Next target</span><strong>{lastSummary.nextTarget}</strong></p>}
-          {lastSummary.comparison && lastSummary.comparison.length > 0 && (
-            <div className="flow-summary-compare">
-              <span>VS LAST MATCHING WORKOUT</span>
-              <div>{lastSummary.comparison.map((line) => <strong key={line}>{line}</strong>)}</div>
-            </div>
+      <details className="ds-rise ds-rise--3">
+        <summary className="ds-btn ds-btn--ghost" style={{ width: "100%", justifyContent: "space-between" }}>
+          Session note <span>{sessionNote ? "Saved" : "Optional"}</span>
+        </summary>
+        <div style={{ marginTop: 12 }}>
+          <Field label="Session note">
+            <TextAreaInput value={sessionNote} onChange={(event) => setSessionNote(event.target.value)} placeholder="How did the session feel? Equipment changes? Anything to remember next time?" rows={4} />
+          </Field>
+        </div>
+      </details>
+
+      <div className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="Session" title="Finish workout" />
+        <p className="ds-muted" style={{ margin: "8px 0 0" }}>Review your progress, then hold to save so an accidental tap cannot end the workout.</p>
+        <div className="ds-stack" style={{ marginTop: 12 }}>
+          <Button variant="secondary" size="lg" block onClick={() => setFinishOpen((current) => !current)}>Finish workout <span>⌄</span></Button>
+          {finishOpen && (
+            <Card tight>
+              <div className="ds-stack">
+                <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                  <strong>{stats.completedAll}/{stats.totalSets} sets completed</strong>
+                </div>
+                <span className="ds-muted">{formatDuration(elapsed)} active time · {Math.round(stats.volume).toLocaleString()} lb volume</span>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  block
+                  className={finishHolding ? "ds-pulse" : ""}
+                  onPointerDown={beginFinishHold}
+                  onPointerUp={cancelFinishHold}
+                  onPointerLeave={cancelFinishHold}
+                  onPointerCancel={cancelFinishHold}
+                >{finishHolding ? "Keep holding…" : "Hold to finish & save"}</Button>
+                <Button variant="ghost" size="sm" onClick={() => setFinishOpen(false)}>Continue workout</Button>
+              </div>
+            </Card>
           )}
-        </section>
+        </div>
+      </div>
+
+      {lastSummary && (
+        <Card glow className="ds-rise">
+          <div className="ds-stack">
+            <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <p className="ds-eyebrow ds-eyebrow--volt" style={{ margin: 0 }}>WORKOUT SAVED</p>
+                <h2 className="ds-section-title">{lastSummary.name}</h2>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setLastSummary(null)}>Close</Button>
+            </div>
+            <StatGrid cols={4}>
+              <Stat label="Sets" value={lastSummary.sets} />
+              <Stat label="Volume" value={`${Math.round(lastSummary.volume).toLocaleString()} lb`} />
+              <Stat label="Time" value={formatDuration(lastSummary.duration)} />
+              <Stat label="PRs" value={lastSummary.prs.length} tone={lastSummary.prs.length ? "amber" : "default"} />
+            </StatGrid>
+            {lastSummary.prs.length > 0 && <p className="ds-muted" style={{ margin: 0 }}>🏆 {lastSummary.prs.join(" · ")}</p>}
+            {lastSummary.nextTarget && (
+              <div>
+                <span className="ds-field__label">Next target</span>
+                <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{lastSummary.nextTarget}</p>
+              </div>
+            )}
+            {lastSummary.comparison && lastSummary.comparison.length > 0 && (
+              <div>
+                <p className="ds-eyebrow" style={{ margin: "0 0 6px" }}>VS LAST MATCHING WORKOUT</p>
+                <div className="ds-stack">{lastSummary.comparison.map((line) => <strong key={line}>{line}</strong>)}</div>
+              </div>
+            )}
+          </div>
+        </Card>
       )}
 
       {undo && (
-        <div className="gym-undo-toast" role="status">
-          <span>{undo.label}</span>
-          <button onClick={restoreUndo}>Undo</button>
+        <div
+          role="status"
+          className="ds-card ds-card--tight ds-rise"
+          style={{ position: "fixed", left: 16, right: 16, bottom: "calc(var(--ds-dock-clearance) + 12px)", zIndex: 800, maxWidth: "var(--ds-content-max)", margin: "0 auto" }}
+        >
+          <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+            <span className="ds-muted">{undo.label}</span>
+            <Button variant="ghost" size="sm" onClick={restoreUndo}>Undo</Button>
+          </div>
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

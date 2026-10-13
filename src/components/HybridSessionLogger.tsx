@@ -3,10 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { kindLabel, pacePerKm, saveHybridSession, type HybridSessionKind } from "../lib/hybridSessions";
 import { WEEKLY_PLAN_KEY, defaultWeeklyPlan, normalizeWeeklyPlan, todayPlanIndex } from "../lib/weeklyPlan";
+import {
+  Button,
+  Card,
+  Field,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  SegmentedControl,
+  TextAreaInput,
+  TextInput,
+} from "../ui";
 
 function validKind(value: string | null): HybridSessionKind {
   return value === "run" || value === "conditioning" || value === "pool" || value === "recovery" ? value : "run";
 }
+
+const KIND_OPTIONS = (["run", "conditioning", "pool", "recovery"] as HybridSessionKind[]).map((item) => ({
+  value: item,
+  label: kindLabel(item),
+}));
 
 export default function HybridSessionLogger() {
   const [kind, setKind] = useState<HybridSessionKind>("run");
@@ -67,36 +83,81 @@ export default function HybridSessionLogger() {
   }
 
   return (
-    <main className="hs-shell">
-      <header className="hs-topbar">
-        <div><p className="ti-eyebrow">HYBRID SESSION · V1.6</p><h1>Track Session</h1><p>Log cardio, conditioning, pool work, and recovery without forcing it into lifting data.</p></div>
-        <a className="ti-secondary" href="/plan">Weekly plan</a>
-      </header>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="Hybrid session · V1.6"
+          title="Track Session"
+          lede="Log cardio, conditioning, pool work, and recovery without forcing it into lifting data."
+          action={<a className="ds-btn ds-btn--secondary ds-btn--sm" href="/plan">Weekly plan</a>}
+        />
+      </div>
 
-      <section className="hs-card hs-type-grid">
-        {(["run", "conditioning", "pool", "recovery"] as HybridSessionKind[]).map((item) => (
-          <button key={item} className={kind === item ? "active" : ""} onClick={() => changeKind(item)}>{kindLabel(item)}</button>
-        ))}
-      </section>
+      <Card tight className="ds-rise ds-rise--1">
+        <div className="ds-field__label" style={{ marginBottom: 8 }}>Session type</div>
+        <SegmentedControl<HybridSessionKind>
+          label="Session type"
+          options={KIND_OPTIONS}
+          value={kind}
+          onChange={changeKind}
+        />
+      </Card>
 
-      <section className="hs-card hs-form">
-        <label><span>Session name</span><input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-        <label><span>Duration</span><div className="hs-number"><input type="number" inputMode="numeric" min="1" value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}/><small>min</small></div></label>
+      <Card className="ds-rise ds-rise--2">
+        <div className="ds-stack">
+          <SectionHeader eyebrow="Details" title="Session details" />
+          <Field label="Session name">
+            <TextInput value={title} onChange={(event) => setTitle(event.target.value)} />
+          </Field>
+          <div className="ds-grid-2">
+            <Field label="Duration" suffix="min">
+              <TextInput type="number" inputMode="numeric" min={1} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} />
+            </Field>
+            {kind === "run" && (
+              <Field label="Distance" suffix="km">
+                <TextInput type="number" inputMode="decimal" min={0} step={0.1} value={distanceKm ?? ""} onChange={(event) => setDistanceKm(event.target.value === "" ? null : Number(event.target.value))} />
+              </Field>
+            )}
+            {kind === "conditioning" && (
+              <Field label="Vertical / climb" suffix="ft">
+                <TextInput type="number" inputMode="numeric" min={0} value={elevationFeet ?? ""} onChange={(event) => setElevationFeet(event.target.value === "" ? null : Number(event.target.value))} />
+              </Field>
+            )}
+            {kind === "pool" && (
+              <Field label="Laps">
+                <TextInput type="number" inputMode="numeric" min={0} value={laps ?? ""} onChange={(event) => setLaps(event.target.value === "" ? null : Number(event.target.value))} />
+              </Field>
+            )}
+            {kind === "run" && (
+              <div className="ds-stat">
+                <div className="ds-stat__label">Average pace</div>
+                <div className="ds-stat__value ds-tnum">{pace ?? "—"}</div>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="ds-field__label" style={{ marginBottom: 6 }}>Effort · RPE {effort}/10</div>
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={effort}
+              onChange={(event) => setEffort(Number(event.target.value))}
+              style={{ width: "100%" }}
+              aria-label={`Effort, RPE ${effort} of 10`}
+            />
+          </div>
+          <Field label="Notes">
+            <TextAreaInput rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="How it felt, intervals, recovery work, anything worth remembering…" />
+          </Field>
+        </div>
+      </Card>
 
-        {kind === "run" && <>
-          <label><span>Distance</span><div className="hs-number"><input type="number" inputMode="decimal" min="0" step="0.1" value={distanceKm ?? ""} onChange={(event) => setDistanceKm(event.target.value === "" ? null : Number(event.target.value))}/><small>km</small></div></label>
-          <div className="hs-metric"><span>Average pace</span><strong>{pace ?? "—"}</strong></div>
-        </>}
-
-        {kind === "conditioning" && <label><span>Vertical / climb</span><div className="hs-number"><input type="number" inputMode="numeric" min="0" value={elevationFeet ?? ""} onChange={(event) => setElevationFeet(event.target.value === "" ? null : Number(event.target.value))}/><small>ft</small></div></label>}
-        {kind === "pool" && <label><span>Laps</span><input type="number" inputMode="numeric" min="0" value={laps ?? ""} onChange={(event) => setLaps(event.target.value === "" ? null : Number(event.target.value))}/></label>}
-
-        <label><span>Effort · RPE {effort}/10</span><input type="range" min="1" max="10" value={effort} onChange={(event) => setEffort(Number(event.target.value))}/></label>
-        <label className="hs-wide"><span>Notes</span><textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="How it felt, intervals, recovery work, anything worth remembering…"/></label>
-      </section>
-
-      <div className="hs-actions"><button className="ti-primary" onClick={finish}>Complete session</button><a className="ti-secondary" href="/history">View history</a></div>
-      {status && <div className="ti-status" role="status">{status}</div>}
-    </main>
+      <div className="ds-grid-2 ds-rise ds-rise--3">
+        <Button variant="primary" size="lg" block onClick={finish}>Complete session</Button>
+        <a className="ds-btn ds-btn--secondary ds-btn--lg ds-btn--block" href="/history">View history</a>
+      </div>
+      {status && <Card tight className="ds-rise" role="status"><p className="ds-muted" style={{ margin: 0 }}>{status}</p></Card>}
+    </PageShell>
   );
 }

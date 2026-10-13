@@ -18,10 +18,28 @@ import {
   type ReadinessRecord,
   type WorkoutHistoryItem,
 } from "../lib/trainingIntelligence";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "../ui";
 
 function signedDuration(seconds: number) {
   if (!seconds) return "0m";
   return `${seconds > 0 ? "+" : "−"}${formatDuration(Math.abs(seconds))}`;
+}
+
+function progressionTone(action: string | undefined): "volt" | "blue" | "neutral" {
+  if (action === "increase") return "volt";
+  if (action === "build") return "blue";
+  return "neutral";
 }
 
 export default function TrainingIntelligenceDashboard() {
@@ -50,69 +68,153 @@ export default function TrainingIntelligenceDashboard() {
   const avgHigh = highReady.length ? highReady.reduce((sum, item) => sum + item.workout.totalVolume, 0) / highReady.length : null;
   const avgLow = lowReady.length ? lowReady.reduce((sum, item) => sum + item.workout.totalVolume, 0) / lowReady.length : null;
 
-  return (
-    <main className="ti-shell">
-      <header className="ti-topbar"><div><p className="ti-eyebrow">TRAINING INTELLIGENCE · V1.3</p><h1>Progress</h1><p>Targets first. Details one level deeper.</p></div><div className="ti-top-actions"><a href="/prs">PR board</a><a href="/gym">Gym</a></div></header>
+  const go = (href: string) => { window.location.href = href; };
 
-      <section className="ti-kpi-grid">
-        <div className="ti-kpi"><span>7-day sessions</span><strong>{week.sessions}</strong></div>
-        <div className="ti-kpi"><span>Working sets</span><strong>{week.sets}</strong></div>
-        <div className="ti-kpi"><span>Volume</span><strong>{Math.round(week.volume).toLocaleString()}<small> lb</small></strong></div>
-        <div className="ti-kpi"><span>Training time</span><strong>{formatDuration(week.duration)}</strong></div>
-      </section>
+  return (
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="TRAINING INTELLIGENCE · V1.3"
+          eyebrowVolt
+          title="Progress"
+          lede="Targets first. Details one level deeper."
+          action={
+            <div className="ds-cluster">
+              <Button variant="ghost" size="sm" onClick={() => go("/prs")}>PR board</Button>
+              <Button variant="ghost" size="sm" onClick={() => go("/gym")}>Gym</Button>
+            </div>
+          }
+        />
+      </div>
+
+      <div className="ds-rise ds-rise--1">
+        <SectionHeader eyebrow="THIS WEEK" title="Seven-day output" />
+        <div style={{ marginTop: 12 }}>
+          <StatGrid cols={2}>
+            <Stat label="7-day sessions" value={week.sessions} />
+            <Stat label="Working sets" value={week.sets} />
+            <Stat label="Volume" value={`${Math.round(week.volume).toLocaleString()} lb`} />
+            <Stat label="Training time" value={formatDuration(week.duration)} />
+          </StatGrid>
+        </div>
+      </div>
 
       {comparison && (
-        <section className="ti-card ti-comparison">
-          <div className="ti-section-head"><div><p className="ti-eyebrow">VS LAST {comparison.current.name.toUpperCase()}</p><h2>{comparison.current.name}</h2></div><span>{formatShortDate(comparison.current.completedAt)}</span></div>
-          <div className="ti-compare-grid">
-            <div><span>Volume</span><strong>{deltaLabel(comparison.volumePct, "%")}</strong><small>{Math.round(comparison.current.totalVolume).toLocaleString()} lb today</small></div>
-            <div><span>Sets</span><strong>{deltaLabel(comparison.setDelta)}</strong><small>{comparison.current.completedSets} completed</small></div>
-            <div><span>Duration</span><strong>{signedDuration(comparison.durationDeltaSeconds)}</strong><small>{formatDuration(comparison.current.durationSeconds)}</small></div>
-            <div><span>Avg RIR</span><strong>{deltaLabel(comparison.rirDelta)}</strong><small>{typeof comparison.current.averageRir === "number" ? comparison.current.averageRir.toFixed(1) : "Not rated"}</small></div>
-          </div>
-        </section>
+        <div className="ds-rise ds-rise--2">
+          <Card>
+            <SectionHeader
+              eyebrow={`VS LAST ${comparison.current.name.toUpperCase()}`}
+              title={comparison.current.name}
+              action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{formatShortDate(comparison.current.completedAt)}</span>}
+            />
+            <div style={{ marginTop: 12 }}>
+              <StatGrid cols={2}>
+                <Stat label="Volume" value={deltaLabel(comparison.volumePct, "%")} sub={`${Math.round(comparison.current.totalVolume).toLocaleString()} lb today`} />
+                <Stat label="Sets" value={deltaLabel(comparison.setDelta)} sub={`${comparison.current.completedSets} completed`} />
+                <Stat label="Duration" value={signedDuration(comparison.durationDeltaSeconds)} sub={formatDuration(comparison.current.durationSeconds)} />
+                <Stat label="Avg RIR" value={deltaLabel(comparison.rirDelta)} sub={typeof comparison.current.averageRir === "number" ? comparison.current.averageRir.toFixed(1) : "Not rated"} />
+              </StatGrid>
+            </div>
+          </Card>
+        </div>
       )}
 
-      <section className="ti-two-col">
-        <div className="ti-card">
-          <div className="ti-section-head"><div><p className="ti-eyebrow">NEXT SESSION</p><h2>Progression targets</h2></div><span>{ready.length} load increases ready</span></div>
-          <div className="ti-target-list">
-            {summaries.slice(0, 8).map((exercise) => (
-              <a href={`/exercise/${encodeURIComponent(exercise.id)}`} className="ti-target-row" key={exercise.id}>
-                <div><strong>{exercise.name}</strong><span>{exercise.progression?.reason}</span></div>
-                <div><b className={`ti-action ${exercise.progression?.action}`}>{exercise.progression?.label}</b><small>{exercise.progression?.target}</small></div>
-              </a>
-            ))}
-            {!summaries.length && <p className="ti-empty">Complete your first workout and the app will build targets automatically.</p>}
-          </div>
+      <div className="ds-rise ds-rise--3">
+        <SectionHeader
+          eyebrow="NEXT SESSION"
+          title="Progression targets"
+          action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{ready.length} load increases ready</span>}
+        />
+        <div style={{ marginTop: 12 }}>
+          <Card tight>
+            <div className="ds-stack">
+              {summaries.slice(0, 8).map((exercise) => (
+                <ListRow
+                    key={exercise.id}
+                    href={`/exercise/${encodeURIComponent(exercise.id)}`}
+                    title={exercise.name}
+                    sub={exercise.progression?.reason}
+                    trailing={
+                      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                        <Badge tone={progressionTone(exercise.progression?.action)}>{exercise.progression?.label}</Badge>
+                        <span className="ds-row__sub">{exercise.progression?.target}</span>
+                      </span>
+                    }
+                  />
+              ))}
+              {!summaries.length && (
+                <EmptyState
+                  title="No targets yet"
+                  body="Complete your first workout and the app will build targets automatically."
+                />
+              )}
+            </div>
+          </Card>
         </div>
+      </div>
 
-        <div className="ti-card">
-          <div className="ti-section-head"><div><p className="ti-eyebrow">SIGNALS</p><h2>What needs attention</h2></div></div>
-          <div className="ti-signal-list">
-            <div className="ti-signal"><strong>{ready.length ? `${ready.length} exercise${ready.length === 1 ? "" : "s"} ready for more load` : "No forced load increases"}</strong><span>{ready.length ? ready.slice(0, 3).map((item) => item.name).join(" · ") : "Keep accumulating clean reps."}</span></div>
-            <div className="ti-signal"><strong>{plateaus.length ? `${plateaus.length} possible plateau${plateaus.length === 1 ? "" : "s"}` : "No obvious plateaus"}</strong><span>{plateaus.length ? `${plateaus.slice(0, 3).map((item) => item.name).join(" · ")} have been nearly flat across 3 sessions.` : "Recent e1RM trends are still moving."}</span></div>
-            <div className="ti-signal"><strong>{latestWeight ? `Bodyweight ${Number(latestWeight.value).toFixed(1)} lb` : "Bodyweight not logged"}</strong><span><a href="/bodyweight">Open bodyweight manager →</a></span></div>
-          </div>
+      <div className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="SIGNALS" title="What needs attention" />
+        <div style={{ marginTop: 12 }}>
+          <Card tight>
+            <div className="ds-stack">
+              <ListRow
+                title={ready.length ? `${ready.length} exercise${ready.length === 1 ? "" : "s"} ready for more load` : "No forced load increases"}
+                sub={ready.length ? ready.slice(0, 3).map((item) => item.name).join(" · ") : "Keep accumulating clean reps."}
+              />
+              <ListRow
+                title={plateaus.length ? `${plateaus.length} possible plateau${plateaus.length === 1 ? "" : "s"}` : "No obvious plateaus"}
+                sub={plateaus.length ? `${plateaus.slice(0, 3).map((item) => item.name).join(" · ")} have been nearly flat across 3 sessions.` : "Recent e1RM trends are still moving."}
+              />
+              <ListRow
+                title={latestWeight ? `Bodyweight ${Number(latestWeight.value).toFixed(1)} lb` : "Bodyweight not logged"}
+                sub={<a href="/bodyweight" style={{ color: "var(--ds-volt)" }}>Open bodyweight manager →</a>}
+              />
+            </div>
+          </Card>
         </div>
-      </section>
+      </div>
 
-      <section className="ti-card">
-        <div className="ti-section-head"><div><p className="ti-eyebrow">EXERCISES</p><h2>Performance library</h2></div><span>Tap any exercise for its full page</span></div>
-        <div className="ti-exercise-grid">
-          {summaries.map((exercise) => (
-            <a href={`/exercise/${encodeURIComponent(exercise.id)}`} className="ti-exercise-tile" key={exercise.id}>
-              <span>{exercise.muscle}</span><strong>{exercise.name}</strong><div><b>{Math.round(exercise.bestE1rm)} lb e1RM</b><small>{exercise.sessionCount} sessions</small></div>
-            </a>
-          ))}
-          {!summaries.length && <p className="ti-empty">Exercise pages populate automatically from completed workouts.</p>}
+      <div className="ds-rise">
+        <SectionHeader eyebrow="EXERCISES" title="Performance library" action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>Tap any exercise for its full page</span>} />
+        <div style={{ marginTop: 12 }}>
+          {summaries.length > 0 && (
+            <div className="ds-grid-2">
+              {summaries.map((exercise) => (
+                <ListRow
+                    key={exercise.id}
+                    href={`/exercise/${encodeURIComponent(exercise.id)}`}
+                    title={<><span className="ds-row__sub" style={{ display: "block" }}>{exercise.muscle}</span>{exercise.name}</>}
+                    sub={<><b>{Math.round(exercise.bestE1rm)} lb e1RM</b> · {exercise.sessionCount} sessions</>}
+                  />
+              ))}
+            </div>
+          )}
+          {!summaries.length && (
+            <Card tight>
+              <EmptyState
+                title="No exercises yet"
+                body="Exercise pages populate automatically from completed workouts."
+              />
+            </Card>
+          )}
         </div>
-      </section>
+      </div>
 
-      <section className="ti-two-col">
-        <a className="ti-card ti-click-card" href="/prs"><span>Personal records</span><strong>Open PR board</strong><small>Load · reps · e1RM · volume · streaks →</small></a>
-        <div className="ti-card"><span>Readiness relationship</span><strong>{latestReadiness ? `${latestReadiness.sleep} sleep · ${latestReadiness.energy} energy` : "Start tagging readiness"}</strong><small>{avgHigh != null && avgLow != null ? `High-readiness sessions average ${Math.round(((avgHigh - avgLow) / Math.max(1, avgLow)) * 100)}% different volume vs low-readiness sessions.` : "After a few tagged workouts, this card will compare performance by readiness."}</small></div>
-      </section>
-    </main>
+      <div className="ds-rise">
+        <div className="ds-grid-2">
+          <Card tight pressable onClick={() => go("/prs")}>
+            <div className="ds-stat__label">Personal records</div>
+            <div className="ds-stat__value" style={{ fontSize: "1.15rem" }}>Open PR board</div>
+            <div className="ds-stat__sub">Load · reps · e1RM · volume · streaks →</div>
+          </Card>
+          <Card tight>
+            <div className="ds-stat__label">Readiness relationship</div>
+            <div className="ds-stat__value" style={{ fontSize: "1.15rem" }}>{latestReadiness ? `${latestReadiness.sleep} sleep · ${latestReadiness.energy} energy` : "Start tagging readiness"}</div>
+            <div className="ds-stat__sub">{avgHigh != null && avgLow != null ? `High-readiness sessions average ${Math.round(((avgHigh - avgLow) / Math.max(1, avgLow)) * 100)}% different volume vs low-readiness sessions.` : "After a few tagged workouts, this card will compare performance by readiness."}</div>
+          </Card>
+        </div>
+      </div>
+    </PageShell>
   );
 }

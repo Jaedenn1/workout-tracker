@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { HISTORY_KEY, derivePersonalRecords, formatShortDate, longestTrainingStreak, safeArray, type PersonalRecord, type WorkoutHistoryItem } from "../lib/trainingIntelligence";
+import { Card, Chip, ChipRow, EmptyState, ListRow, PageHeader, PageShell, SectionHeader, Stat, StatGrid } from "../ui";
 
 type Filter = "all" | PersonalRecord["category"];
+
+const CATEGORY_FILTERS = ["all", "e1RM", "weight", "reps", "exercise-volume", "workout-volume"] as Filter[];
 
 export default function PRDashboard() {
   const [history, setHistory] = useState<WorkoutHistoryItem[]>([]);
@@ -15,10 +18,78 @@ export default function PRDashboard() {
   const recentEvents = history.flatMap((workout) => (workout.prs ?? []).map((label) => ({ label, completedAt: workout.completedAt }))).slice(0, 12);
   const workoutVolume = records.find((record) => record.category === "workout-volume");
 
-  return <main className="ti-shell">
-    <header className="ti-topbar"><div><p className="ti-eyebrow">PERSONAL RECORDS</p><h1>PR Board</h1><p>Your best strength, rep and volume marks in one place.</p></div><div className="ti-top-actions"><a href="/progress">← Progress</a><a href="/gym">Gym</a></div></header>
-    <section className="ti-kpi-grid"><div className="ti-kpi"><span>Training streak</span><strong>{streak}<small> days</small></strong></div><div className="ti-kpi"><span>Tracked records</span><strong>{records.length}</strong></div><div className="ti-kpi"><span>Recent PR events</span><strong>{recentEvents.length}</strong></div><div className="ti-kpi"><span>Best workout volume</span><strong>{workoutVolume?.value ?? "—"}</strong></div></section>
-    <section className="ti-card"><div className="ti-filter-row">{(["all", "e1RM", "weight", "reps", "exercise-volume", "workout-volume"] as Filter[]).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item === "all" ? "All" : item.replace("-", " ")}</button>)}</div><div className="ti-pr-grid">{filtered.map((record) => record.exerciseId ? <a className="ti-pr-card" href={`/exercise/${encodeURIComponent(record.exerciseId)}`} key={record.key}><span>{record.label}</span><strong>{record.value}</strong><b>{record.exerciseName}</b><small>{formatShortDate(record.completedAt)} →</small></a> : <div className="ti-pr-card" key={record.key}><span>{record.label}</span><strong>{record.value}</strong><b>All workouts</b><small>{formatShortDate(record.completedAt)}</small></div>)}</div>{!records.length && <p className="ti-empty">PRs will populate automatically after completed workouts.</p>}</section>
-    <section className="ti-card"><div className="ti-section-head"><div><p className="ti-eyebrow">RECENT</p><h2>Record moments</h2></div></div><div className="ti-event-list">{recentEvents.map((event, index) => <div key={`${event.completedAt}-${index}`}><span>🏆</span><strong>{event.label}</strong><small>{formatShortDate(event.completedAt)}</small></div>)}{!recentEvents.length && <p className="ti-empty">When the logger detects a new e1RM, it will appear here.</p>}</div></section>
-  </main>;
+  return (
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="PERSONAL RECORDS"
+          eyebrowVolt
+          title={<>PR <span className="ds-accent">Board</span></>}
+          lede="Your best strength, rep and volume marks in one place."
+          action={
+            <div className="ds-cluster">
+              <a className="ds-btn ds-btn--ghost ds-btn--sm" href="/progress">← Progress</a>
+              <a className="ds-btn ds-btn--ghost ds-btn--sm" href="/gym">Gym</a>
+            </div>
+          }
+        />
+      </div>
+
+      <div className="ds-rise ds-rise--1">
+        <StatGrid cols={4}>
+          <Stat label="Training streak" value={streak} sub="days" />
+          <Stat label="Tracked records" value={records.length} />
+          <Stat label="Recent PR events" value={recentEvents.length} />
+          <Stat label="Best workout volume" value={workoutVolume?.value ?? "—"} tone="amber" />
+        </StatGrid>
+      </div>
+
+      <Card className="ds-rise ds-rise--2">
+        <div className="ds-stack">
+          <ChipRow>
+            {CATEGORY_FILTERS.map((item) => (
+              <Chip key={item} selected={filter === item} onClick={() => setFilter(item)}>
+                {item === "all" ? "All" : item.replace("-", " ")}
+              </Chip>
+            ))}
+          </ChipRow>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "var(--ds-space-3)" }}>
+            {filtered.map((record) => record.exerciseId ? (
+              <a key={record.key} className="ds-card ds-card--tight ds-card--pressable" style={{ display: "block", textDecoration: "none", color: "inherit" }} href={`/exercise/${encodeURIComponent(record.exerciseId)}`}>
+                <div className="ds-stat__label">{record.label}</div>
+                <div className="ds-stat__value ds-stat__value--amber">{record.value}</div>
+                <div className="ds-stat__sub" style={{ color: "var(--ds-text-1)", fontWeight: 700 }}>{record.exerciseName}</div>
+                <div className="ds-stat__sub">{formatShortDate(record.completedAt)} →</div>
+              </a>
+            ) : (
+              <div key={record.key} className="ds-card ds-card--tight">
+                <div className="ds-stat__label">{record.label}</div>
+                <div className="ds-stat__value ds-stat__value--amber">{record.value}</div>
+                <div className="ds-stat__sub" style={{ color: "var(--ds-text-1)", fontWeight: 700 }}>All workouts</div>
+                <div className="ds-stat__sub">{formatShortDate(record.completedAt)}</div>
+              </div>
+            ))}
+          </div>
+          {!records.length && <EmptyState title="No PRs yet" body="PRs will populate automatically after completed workouts." />}
+        </div>
+      </Card>
+
+      <Card className="ds-rise ds-rise--3">
+        <div className="ds-stack">
+          <SectionHeader eyebrow="RECENT" title="Record moments" />
+          <div className="ds-stack">
+            {recentEvents.map((event, index) => (
+              <ListRow
+                key={`${event.completedAt}-${index}`}
+                icon={<span style={{ fontSize: "1.25rem" }}>🏆</span>}
+                title={event.label}
+                sub={formatShortDate(event.completedAt)}
+              />
+            ))}
+            {!recentEvents.length && <EmptyState title="No record moments yet" body="When the logger detects a new e1RM, it will appear here." />}
+          </div>
+        </div>
+      </Card>
+    </PageShell>
+  );
 }

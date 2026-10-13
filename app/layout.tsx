@@ -27,7 +27,9 @@ import "./v24.css";
 import "./v25.css";
 import "./v26.css";
 import "./v27.css";
+import "./ds-tokens.css";
+import "./ds.css";
 
 export const metadata: Metadata = { title: "Workout Tracker", description: "Clean live hybrid training OS with adaptive intelligence, reliable workout execution, and streamlined training navigation", manifest: "/manifest.webmanifest", icons: { icon: "/icon.svg", apple: "/icon.svg" }, appleWebApp: { capable: true, title: "Workout Tracker", statusBarStyle: "black-translucent" } };
 export const viewport: Viewport = { themeColor: "#080808" };
-export default function RootLayout({ children }: { children: ReactNode }) { return <html lang="en"><body><StorageGate>{children}<AppTools/><InteractionLayer/></StorageGate></body></html>; }
+export default function RootLayout({ children }: { children: ReactNode }) { return <html lang="en" className="ds"><body><StorageGate>{children}<AppTools/><InteractionLayer/></StorageGate></body></html>; }

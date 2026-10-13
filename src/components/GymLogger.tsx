@@ -17,6 +17,28 @@ import {
   type PerformanceSet,
   type ProgressionAction,
 } from "../lib/progression";
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  Field,
+  IconButton,
+  ListRow,
+  PageHeader,
+  PageShell,
+  SectionHeader,
+  SelectInput,
+  Sheet,
+  Stat,
+  StatGrid,
+  Stepper,
+  TextAreaInput,
+  TextInput,
+  TimerFace,
+} from "../ui";
 
 type SetType = "working" | "warmup" | "backoff" | "drop" | "failure";
 
@@ -747,154 +769,314 @@ export default function GymLogger() {
   }
 
   if (!hydrated) {
-    return <main className="gym-shell"><p className="gym-muted">Loading Gym Mode…</p></main>;
+    return (
+      <PageShell>
+        <p className="ds-muted">Loading Gym Mode…</p>
+      </PageShell>
+    );
   }
 
   return (
-    <main className="gym-shell">
-      <header className="gym-hero">
-        <div>
-          <p className="gym-eyebrow">V0.7 · TRAINING EXPERIENCE</p>
-          <h1>{activeRoutine.name}</h1>
-          <p className="gym-muted">Fast logging, set types, notes, supersets, substitutions, custom rest and custom exercises.</p>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="V0.7 · TRAINING EXPERIENCE"
+          title={activeRoutine.name}
+          lede="Fast logging, set types, notes, supersets, substitutions, custom rest and custom exercises."
+        />
+      </div>
+
+      <Card className="ds-rise ds-rise--1">
+        <div className="ds-stack">
+          <TimerFace digits={formatDuration(elapsed)} label="SESSION" />
+          <div className="ds-cluster" style={{ justifyContent: "flex-end" }}>
+            <a className="ds-btn ds-btn--ghost" href="/">Full view</a>
+          </div>
         </div>
-        <div className="gym-session"><span>Session</span><strong>{formatDuration(elapsed)}</strong><a href="/">Full view</a></div>
-      </header>
+      </Card>
 
-      <nav className="gym-routines" aria-label="Routines">
-        {routines.map((routine) => (
-          <button key={routine.id} className={routine.id === activeRoutineId ? "active" : ""} onClick={() => switchRoutine(routine.id)}>{routine.name}</button>
-        ))}
-      </nav>
+      <div className="ds-rise ds-rise--2" role="group" aria-label="Routines">
+        <ChipRow>
+          {routines.map((routine) => (
+            <Chip key={routine.id} selected={routine.id === activeRoutineId} onClick={() => switchRoutine(routine.id)}>{routine.name}</Chip>
+          ))}
+        </ChipRow>
+      </div>
 
-      <section className="gym-stats">
-        <div><span>Working sets</span><strong>{stats.sets}</strong></div>
-        <div><span>Volume</span><strong>{Math.round(stats.volume).toLocaleString()} lb</strong></div>
-        <div><span>Avg RIR</span><strong>{stats.rir == null ? "—" : stats.rir.toFixed(1)}</strong></div>
-        <div className={restRemaining ? "resting" : ""}><span>Rest</span><strong>{restRemaining ? formatDuration(restRemaining) : "Ready"}</strong></div>
-      </section>
+      <div className="ds-rise ds-rise--2">
+        <StatGrid cols={4}>
+          <Stat label="Working sets" value={stats.sets} />
+          <Stat label="Volume" value={`${Math.round(stats.volume).toLocaleString()} lb`} />
+          <Stat label="Avg RIR" value={stats.rir == null ? "—" : stats.rir.toFixed(1)} />
+          <Stat label="Rest" value={restRemaining ? formatDuration(restRemaining) : "Ready"} tone={restRemaining ? "volt" : "default"} />
+        </StatGrid>
+      </div>
 
       {restRemaining > 0 && (
-        <section className="gym-rest-banner">
-          <strong>{formatDuration(restRemaining)}</strong>
-          <div><button onClick={() => setRestRemaining((value) => Math.max(0, value - 30))}>−30</button><button onClick={() => setRestRemaining(0)}>Skip</button><button onClick={() => setRestRemaining((value) => value + 30)}>+30</button></div>
-        </section>
+        <Card tight className="ds-rise">
+          <div className="ds-stack">
+            <TimerFace digits={formatDuration(restRemaining)} label="REST" pulse />
+            <div className="ds-cluster" style={{ justifyContent: "center" }}>
+              <Button variant="secondary" size="sm" onClick={() => setRestRemaining((value) => Math.max(0, value - 30))}>−30</Button>
+              <Button variant="ghost" size="sm" onClick={() => setRestRemaining(0)}>Skip</Button>
+              <Button variant="secondary" size="sm" onClick={() => setRestRemaining((value) => value + 30)}>+30</Button>
+            </div>
+          </div>
+        </Card>
       )}
 
-      <section className="gym-tools-row">
-        <button onClick={() => setPanel("exercise")}>＋ Exercise</button>
-        <button onClick={() => setPanel("custom")}>✚ Custom</button>
-        <button onClick={() => setPanel("plate")}>◉ Plates</button>
-        <button onClick={() => setPanel("warmup")}>🔥 Warm-up</button>
-      </section>
+      <div className="ds-rise ds-rise--3" role="group" aria-label="Workout tools">
+        <ChipRow>
+          <Chip selected={panel === "exercise"} onClick={() => setPanel("exercise")}>＋ Exercise</Chip>
+          <Chip selected={panel === "custom"} onClick={() => setPanel("custom")}>✚ Custom</Chip>
+          <Chip selected={panel === "plate"} onClick={() => setPanel("plate")}>◉ Plates</Chip>
+          <Chip selected={panel === "warmup"} onClick={() => setPanel("warmup")}>🔥 Warm-up</Chip>
+        </ChipRow>
+      </div>
 
-      {notice && <div className="gym-notice">{notice}</div>}
-
-      <section className="gym-stack">
-        {exercises.map((exercise, exerciseIndex) => {
-          const currentBest = bestEstimatedOneRepMax(workingPerformance(exercise.sets));
-          const priorBest = historicalBest(history, exercise.id);
-          const isPr = priorBest > 0 && currentBest > priorBest + 0.5;
-          const next = exercises[exerciseIndex + 1];
-          const pairedWithNext = Boolean(next && exercise.supersetGroup && exercise.supersetGroup === next.supersetGroup);
-          const persistentExtra = (extras[activeRoutine.id] ?? []).includes(exercise.id);
-
-          return (
-            <article className={`gym-card ${exercise.supersetGroup ? "gym-superset-card" : ""}`} key={`${exercise.id}-${exerciseIndex}`}>
-              <div className="gym-card-head">
-                <div>
-                  <p className="gym-eyebrow">{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax} REPS</p>
-                  <h2>{exercise.name}</h2>
-                  {exercise.sourceId && <small>Substituted for {definitionFor(exercise.sourceId, customExercises)?.name ?? exercise.sourceId}</small>}
-                </div>
-                <div className="gym-badges">
-                  {isPr && <span>🏆 PR</span>}
-                  {exercise.supersetGroup && <span>↔ SUPERSET</span>}
-                  <span>{actionLabel(exercise.progressionAction)}</span>
-                </div>
-              </div>
-
-              <div className="gym-target"><strong>{exercise.recommendation}</strong><span>Previous: {exercise.previous.length ? exercise.previous.map((set) => `${set.weight}×${set.reps}`).join(" · ") : "none"}</span></div>
-
-              <div className="gym-exercise-controls">
-                <label>Rest <input type="number" min="15" max="600" step="15" value={exercise.restSeconds} onChange={(event) => updateRest(exercise.id, Number(event.target.value))} /> sec</label>
-                <label>Substitute <select value="" onChange={(event) => substituteExercise(exerciseIndex, event.target.value)}><option value="">Choose…</option>{allDefinitions.filter((definition) => definition.id !== exercise.id).map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}</select></label>
-                {next && <button onClick={() => pairWithNext(exerciseIndex)}>{pairedWithNext ? "Unpair" : "Superset + next"}</button>}
-                <button onClick={() => skipToday(exerciseIndex)}>Skip today</button>
-                {persistentExtra && <button className="danger" onClick={() => removeFromRoutine(exercise.id)}>Remove from routine</button>}
-              </div>
-
-              <textarea className="gym-note" value={exercise.note} onChange={(event) => updateNote(exercise.id, event.target.value)} placeholder="Persistent note — seat position, grip, tempo, cues…" />
-
-              <div className="gym-set-header"><span>TYPE</span><span>PREV</span><span>LB</span><span>REPS</span><span>RIR</span><span>✓</span></div>
-              <div className="gym-set-list">
-                {exercise.sets.map((set, setIndex) => {
-                  const previous = exercise.previous[setIndex];
-                  return (
-                    <div className={`gym-set ${set.completed ? "done" : ""} type-${set.type}`} key={set.id}>
-                      <select aria-label={`${exercise.name} set type`} value={set.type} onChange={(event) => updateSetType(exercise.id, set.id, event.target.value as SetType)}>{setTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
-                      <span className="gym-prev">{previous ? `${previous.weight}×${previous.reps}` : "—"}</span>
-                      <input aria-label={`${exercise.name} set ${setIndex + 1} weight`} type="number" inputMode="decimal" value={set.weight ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "weight", event.target.value)} />
-                      <input aria-label={`${exercise.name} set ${setIndex + 1} reps`} type="number" inputMode="numeric" value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)} />
-                      <input aria-label={`${exercise.name} set ${setIndex + 1} RIR`} type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="—" value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)} />
-                      <button className="gym-check" onClick={() => toggleSet(exercise.id, set.id, setIndex)}>{set.completed ? "✓" : ""}</button>
-                      <div className="gym-quick">
-                        <button onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Copy</button>
-                        <button onClick={() => bump(exercise.id, set.id, "weight", -5)}>−5</button>
-                        <button onClick={() => bump(exercise.id, set.id, "weight", 5)}>+5</button>
-                        <button onClick={() => bump(exercise.id, set.id, "reps", 1)}>+1 rep</button>
-                        <button className="danger" onClick={() => removeSet(exercise.id, set.id)}>Delete</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button className="gym-add-set" onClick={() => addSet(exercise.id)}>＋ Add set</button>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="gym-finish">
-        <div><p className="gym-eyebrow">SESSION</p><h2>Finish workout</h2><p className="gym-muted">Only Work sets feed normal volume, PRs and progression. Warm-up/drop/failure/back-off details are still saved in the v0.7 session metadata.</p></div>
-        <button onClick={finishWorkout}>Finish & save</button>
-      </section>
-
-      {panel && (
-        <div className="gym-modal-backdrop" onClick={() => setPanel(null)}>
-          <section className="gym-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="gym-modal-head"><div><p className="gym-eyebrow">GYM TOOL</p><h2>{panel === "exercise" ? "Add exercise" : panel === "custom" ? "Custom exercise" : panel === "plate" ? "Plate calculator" : "Warm-up calculator"}</h2></div><button onClick={() => setPanel(null)}>×</button></div>
-
-            {panel === "exercise" && <>
-              <input className="gym-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exercise or muscle…" />
-              <div className="gym-library">{filteredDefinitions.map((definition) => <button key={definition.id} onClick={() => addDefinition(definition, true)}><span><strong>{definition.name}</strong><small>{definition.muscle} · {definition.repMin}–{definition.repMax}</small></span><b>+ Routine</b></button>)}</div>
-            </>}
-
-            {panel === "custom" && <div className="gym-custom-form">
-              <label>Name<input value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Prime Plate-Loaded Row" /></label>
-              <label>Muscle<select value={customForm.muscle} onChange={(event) => setCustomForm((current) => ({ ...current, muscle: event.target.value as MuscleGroup }))}>{muscleOptions.map((muscle) => <option key={muscle}>{muscle}</option>)}</select></label>
-              <label>Rep min<input type="number" value={customForm.repMin} onChange={(event) => setCustomForm((current) => ({ ...current, repMin: event.target.value }))} /></label>
-              <label>Rep max<input type="number" value={customForm.repMax} onChange={(event) => setCustomForm((current) => ({ ...current, repMax: event.target.value }))} /></label>
-              <label>Increment<input type="number" step="0.5" value={customForm.increment} onChange={(event) => setCustomForm((current) => ({ ...current, increment: event.target.value }))} /></label>
-              <label>Starting weight<input type="number" value={customForm.fallbackWeight} onChange={(event) => setCustomForm((current) => ({ ...current, fallbackWeight: event.target.value }))} /></label>
-              <label>Sets<input type="number" min="1" max="10" value={customForm.setCount} onChange={(event) => setCustomForm((current) => ({ ...current, setCount: event.target.value }))} /></label>
-              <label>Equipment<input value={customForm.equipment} onChange={(event) => setCustomForm((current) => ({ ...current, equipment: event.target.value }))} placeholder="Machine, cable, dumbbell…" /></label>
-              <button className="gym-primary" onClick={createCustomExercise}>Create + add to routine</button>
-            </div>}
-
-            {panel === "plate" && <div className="gym-calculator">
-              <div className="gym-calc-inputs"><label>Target lb<input type="number" value={plateTarget} onChange={(event) => setPlateTarget(Number(event.target.value))} /></label><label>Bar lb<input type="number" value={barWeight} onChange={(event) => setBarWeight(Number(event.target.value))} /></label></div>
-              <div className="gym-calc-result"><strong>{plate.perSide} lb per side</strong>{plate.result.length ? <p>{plate.result.map((item) => `${item.count}×${item.plate}`).join(" + ")} per side</p> : <p>Bar only / target below bar.</p>}{plate.remainder > 0.01 && <small>Remaining {plate.remainder} lb per side with this plate set.</small>}</div>
-            </div>}
-
-            {panel === "warmup" && <div className="gym-calculator">
-              <label className="gym-wide-label">Working weight<input type="number" value={warmupWeight} onChange={(event) => setWarmupWeight(Number(event.target.value))} /></label>
-              <div className="gym-warmups">{warmups.map((warmup) => <div key={warmup.pct}><span>{warmup.pct}%</span><strong>{warmup.weight} lb × {warmup.reps}</strong></div>)}</div>
-              <small>Simple ramp-up template. Adjust down if you are already warm or the movement is very light.</small>
-            </div>}
-          </section>
+      {notice && (
+        <div role="status" className="ds-card ds-card--tight ds-rise">
+          <span className="ds-muted">{notice}</span>
         </div>
       )}
-    </main>
+
+      <section className="ds-rise ds-rise--2" aria-label="Exercises">
+        <div className="ds-stack">
+          {exercises.map((exercise, exerciseIndex) => {
+            const currentBest = bestEstimatedOneRepMax(workingPerformance(exercise.sets));
+            const priorBest = historicalBest(history, exercise.id);
+            const isPr = priorBest > 0 && currentBest > priorBest + 0.5;
+            const next = exercises[exerciseIndex + 1];
+            const pairedWithNext = Boolean(next && exercise.supersetGroup && exercise.supersetGroup === next.supersetGroup);
+            const persistentExtra = (extras[activeRoutine.id] ?? []).includes(exercise.id);
+
+            return (
+              <Card key={`${exercise.id}-${exerciseIndex}`}>
+                <div className="ds-stack">
+                  <div>
+                    <p className="ds-eyebrow" style={{ margin: 0 }}>{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax} REPS</p>
+                    <h3 className="ds-section-title">{exercise.name}</h3>
+                    {exercise.sourceId && <p className="ds-muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>Substituted for {definitionFor(exercise.sourceId, customExercises)?.name ?? exercise.sourceId}</p>}
+                  </div>
+
+                  <div className="ds-cluster">
+                    {isPr && <Badge tone="amber">🏆 PR</Badge>}
+                    {exercise.supersetGroup && <Badge tone="blue">↔ SUPERSET</Badge>}
+                    <Badge>{actionLabel(exercise.progressionAction)}</Badge>
+                  </div>
+
+                  <Card tight>
+                    <strong>{exercise.recommendation}</strong>
+                    <p className="ds-muted" style={{ margin: "4px 0 0" }}>Previous: {exercise.previous.length ? exercise.previous.map((set) => `${set.weight}×${set.reps}`).join(" · ") : "none"}</p>
+                  </Card>
+
+                  <div className="ds-stack">
+                    <div className="ds-grid-2">
+                      <Field label="Rest" suffix="sec">
+                        <TextInput type="number" min="15" max="600" step="15" value={exercise.restSeconds} onChange={(event) => updateRest(exercise.id, Number(event.target.value))} />
+                      </Field>
+                      <Field label="Substitute">
+                        <SelectInput value="" onChange={(event) => substituteExercise(exerciseIndex, event.target.value)}>
+                          <option value="">Choose…</option>
+                          {allDefinitions.filter((definition) => definition.id !== exercise.id).map((definition) => <option key={definition.id} value={definition.id}>{definition.name}</option>)}
+                        </SelectInput>
+                      </Field>
+                    </div>
+                    <div className="ds-cluster">
+                      {next && <Button variant="ghost" size="sm" onClick={() => pairWithNext(exerciseIndex)}>{pairedWithNext ? "Unpair" : "Superset + next"}</Button>}
+                      <Button variant="ghost" size="sm" onClick={() => skipToday(exerciseIndex)}>Skip today</Button>
+                      {persistentExtra && <Button variant="danger" size="sm" onClick={() => removeFromRoutine(exercise.id)}>Remove from routine</Button>}
+                    </div>
+                    <Field label="Note">
+                      <TextAreaInput value={exercise.note} onChange={(event) => updateNote(exercise.id, event.target.value)} placeholder="Persistent note — seat position, grip, tempo, cues…" />
+                    </Field>
+                  </div>
+
+                  <div className="ds-stack">
+                    {exercise.sets.map((set, setIndex) => {
+                      const previous = exercise.previous[setIndex];
+                      return (
+                        <Card tight key={set.id}>
+                          <div className="ds-stack">
+                            <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                              <span className="ds-field__control" style={{ maxWidth: 120 }}>
+                                <SelectInput aria-label={`${exercise.name} set type`} value={set.type} onChange={(event) => updateSetType(exercise.id, set.id, event.target.value as SetType)}>
+                                  {setTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                                </SelectInput>
+                              </span>
+                              <span className="ds-muted" style={{ fontSize: "0.85rem" }}>Prev: {previous ? `${previous.weight}×${previous.reps}` : "—"}</span>
+                              <IconButton
+                                small
+                                volt={set.completed}
+                                label={set.completed ? "Reopen set" : "Complete set"}
+                                onClick={() => toggleSet(exercise.id, set.id, setIndex)}
+                              >{set.completed ? "✓" : ""}</IconButton>
+                            </div>
+                            <div className="ds-grid-2">
+                              <Stepper
+                                label="Weight"
+                                unit="lb"
+                                value={String(set.weight ?? "")}
+                                editable
+                                inputProps={{ type: "number", inputMode: "decimal", onChange: (event) => updateSet(exercise.id, set.id, "weight", event.target.value) }}
+                                onDecrement={() => bump(exercise.id, set.id, "weight", -5)}
+                                onIncrement={() => bump(exercise.id, set.id, "weight", 5)}
+                              />
+                              <Field label="Reps">
+                                <TextInput aria-label={`${exercise.name} set ${setIndex + 1} reps`} type="number" inputMode="numeric" value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)} />
+                              </Field>
+                            </div>
+                            <Field label="RIR">
+                              <TextInput aria-label={`${exercise.name} set ${setIndex + 1} RIR`} type="number" inputMode="decimal" min="0" max="10" step="0.5" placeholder="—" value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)} />
+                            </Field>
+                            <div className="ds-cluster">
+                              <Button variant="ghost" size="sm" onClick={() => copyPrevious(exercise.id, set.id, setIndex)}>Copy</Button>
+                              <Button variant="ghost" size="sm" onClick={() => bump(exercise.id, set.id, "reps", 1)}>+1 rep</Button>
+                              <Button variant="danger" size="sm" onClick={() => removeSet(exercise.id, set.id)}>Delete</Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  <Button variant="secondary" size="sm" block onClick={() => addSet(exercise.id)}>＋ Add set</Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="ds-rise ds-rise--4">
+        <SectionHeader eyebrow="Session" title="Finish workout" />
+        <p className="ds-muted" style={{ margin: "8px 0 0" }}>Only Work sets feed normal volume, PRs and progression. Warm-up/drop/failure/back-off details are still saved in the v0.7 session metadata.</p>
+        <div style={{ marginTop: 12 }}>
+          <Button variant="primary" size="lg" block onClick={finishWorkout}>Finish & save</Button>
+        </div>
+      </div>
+
+      <Sheet
+        open={panel !== null}
+        onClose={() => setPanel(null)}
+        title={panel === "exercise" ? "Add exercise" : panel === "custom" ? "Custom exercise" : panel === "plate" ? "Plate calculator" : "Warm-up calculator"}
+      >
+        {panel === "exercise" && (
+          <div className="ds-stack">
+            <Field label="Search">
+              <TextInput value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exercise or muscle…" />
+            </Field>
+            {filteredDefinitions.length === 0 ? (
+              <EmptyState title="No matches" body="Try a different exercise or muscle name." />
+            ) : (
+              <div className="ds-stack">
+                {filteredDefinitions.map((definition) => (
+                  <ListRow
+                    key={definition.id}
+                    title={definition.name}
+                    sub={`${definition.muscle} · ${definition.repMin}–${definition.repMax}`}
+                    trailing={<strong>+ Routine</strong>}
+                    onClick={() => addDefinition(definition, true)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {panel === "custom" && (
+          <div className="ds-stack">
+            <Field label="Name">
+              <TextInput value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Prime Plate-Loaded Row" />
+            </Field>
+            <Field label="Muscle">
+              <SelectInput value={customForm.muscle} onChange={(event) => setCustomForm((current) => ({ ...current, muscle: event.target.value as MuscleGroup }))}>
+                {muscleOptions.map((muscle) => <option key={muscle}>{muscle}</option>)}
+              </SelectInput>
+            </Field>
+            <div className="ds-grid-2">
+              <Field label="Rep min">
+                <TextInput type="number" value={customForm.repMin} onChange={(event) => setCustomForm((current) => ({ ...current, repMin: event.target.value }))} />
+              </Field>
+              <Field label="Rep max">
+                <TextInput type="number" value={customForm.repMax} onChange={(event) => setCustomForm((current) => ({ ...current, repMax: event.target.value }))} />
+              </Field>
+            </div>
+            <div className="ds-grid-2">
+              <Field label="Increment">
+                <TextInput type="number" step="0.5" value={customForm.increment} onChange={(event) => setCustomForm((current) => ({ ...current, increment: event.target.value }))} />
+              </Field>
+              <Field label="Starting weight">
+                <TextInput type="number" value={customForm.fallbackWeight} onChange={(event) => setCustomForm((current) => ({ ...current, fallbackWeight: event.target.value }))} />
+              </Field>
+            </div>
+            <div className="ds-grid-2">
+              <Field label="Sets">
+                <TextInput type="number" min="1" max="10" value={customForm.setCount} onChange={(event) => setCustomForm((current) => ({ ...current, setCount: event.target.value }))} />
+              </Field>
+              <Field label="Equipment">
+                <TextInput value={customForm.equipment} onChange={(event) => setCustomForm((current) => ({ ...current, equipment: event.target.value }))} placeholder="Machine, cable, dumbbell…" />
+              </Field>
+            </div>
+            <Button variant="primary" block onClick={createCustomExercise}>Create + add to routine</Button>
+          </div>
+        )}
+
+        {panel === "plate" && (
+          <div className="ds-stack">
+            <div className="ds-grid-2">
+              <Stepper
+                label="Target"
+                unit="lb"
+                value={String(plateTarget)}
+                editable
+                inputProps={{ type: "number", onChange: (event) => setPlateTarget(Number(event.target.value)) }}
+                onDecrement={() => setPlateTarget((value) => Math.max(0, value - 5))}
+                onIncrement={() => setPlateTarget((value) => value + 5)}
+              />
+              <Stepper
+                label="Bar"
+                unit="lb"
+                value={String(barWeight)}
+                editable
+                inputProps={{ type: "number", onChange: (event) => setBarWeight(Number(event.target.value)) }}
+                onDecrement={() => setBarWeight((value) => Math.max(0, value - 2.5))}
+                onIncrement={() => setBarWeight((value) => value + 2.5)}
+              />
+            </div>
+            <StatGrid cols={2}>
+              <Stat label="Per side" value={`${plate.perSide} lb`} />
+              <Stat
+                label="Plates per side"
+                value={plate.result.length ? plate.result.map((item) => `${item.count}×${item.plate}`).join(" + ") : "Bar only"}
+                sub={plate.result.length ? undefined : "Target below bar"}
+              />
+            </StatGrid>
+            {plate.remainder > 0.01 && (
+              <p className="ds-muted" style={{ margin: 0 }}>Remaining {plate.remainder} lb per side with this plate set.</p>
+            )}
+          </div>
+        )}
+
+        {panel === "warmup" && (
+          <div className="ds-stack">
+            <Stepper
+              label="Working weight"
+              unit="lb"
+              value={String(warmupWeight)}
+              editable
+              inputProps={{ type: "number", onChange: (event) => setWarmupWeight(Number(event.target.value)) }}
+              onDecrement={() => setWarmupWeight((value) => Math.max(0, value - 5))}
+              onIncrement={() => setWarmupWeight((value) => value + 5)}
+            />
+            <div className="ds-stack">
+              {warmups.map((warmup) => (
+                <ListRow key={warmup.pct} title={`${warmup.pct}%`} sub={`${warmup.weight} lb × ${warmup.reps}`} />
+              ))}
+            </div>
+            <p className="ds-muted" style={{ margin: 0 }}>Simple ramp-up template. Adjust down if you are already warm or the movement is very light.</p>
+          </div>
+        )}
+      </Sheet>
+    </PageShell>
   );
 }
