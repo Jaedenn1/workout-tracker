@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { defaultRoutines, exerciseLibrary, type ExerciseDefinition, type RoutineDefinition } from "../data/training";
-import { buildAdaptiveWeek } from "../lib/adaptiveTraining";
+import { buildAdaptiveWeek, type AdaptiveSignal } from "../lib/adaptiveTraining";
 import {
   buildAdvancedIntelligence,
   readCoachFeedback,
@@ -54,10 +54,53 @@ import {
   type TrainingKind,
   type WeeklyPlanDay,
 } from "../lib/weeklyPlan";
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  EmptyState,
+  Field,
+  IconButton,
+  ListRow,
+  PageHeader,
+  PageShell,
+  ProgressBar,
+  SectionHeader,
+  SegmentedControl,
+  SelectInput,
+  Stat,
+  StatGrid,
+  TextInput,
+  TimerFace,
+} from "../ui";
 
 const ROUTINES_KEY = "workout-tracker:v0.4:routines";
 const ACTIVE_ROUTINE_KEY = "workout-tracker:v0.4:active-routine";
 const CUSTOM_KEY = "workout-tracker:v0.7:custom-exercises";
+
+const SIGNAL_BADGE_TONE: Record<AdaptiveSignal, "volt" | "blue" | "amber" | "red"> = {
+  push: "volt",
+  maintain: "blue",
+  reduce: "amber",
+  recover: "red",
+};
+
+const TIMELINE_BADGE_TONE: Record<LiveTimelineTone, "neutral" | "mint" | "amber" | "red"> = {
+  good: "mint",
+  warn: "amber",
+  stop: "red",
+  neutral: "neutral",
+};
+
+const SET_ROW_GRID: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "42px 1fr 1fr 1fr 52px",
+  gap: 8,
+  alignItems: "center",
+  padding: "4px 0",
+};
 
 type CustomExercise = ExerciseDefinition & { equipment?: string };
 type ReadinessDrift = "better" | "same" | "worse";
@@ -624,48 +667,254 @@ export default function LiveTrainingOS() {
     }
   }
 
-  if (!hydrated) return <main className="live-shell"><p className="live-loading">Loading Live Training OS…</p></main>;
+  if (!hydrated) return (
+    <PageShell>
+      <div className="ds-rise"><p className="ds-muted ds-pulse">Loading Live Training OS…</p></div>
+    </PageShell>
+  );
 
-  if (kind === "rest" && !startedAt) return <main className="live-shell"><header className="live-topbar"><div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.5</p><h1>Recovery day</h1><p>The weekly plan marks today as rest. There is no training dose to chase.</p></div><a className="ti-secondary" href="/">Today</a></header><section className="live-card"><h2>Protect the recovery slot</h2><p>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p><div className="live-actions"><a className="ti-primary" href="/plan">Edit weekly plan</a><a className="ti-secondary" href="/live?kind=recovery&title=Recovery">Start recovery session</a></div></section></main>;
+  if (kind === "rest" && !startedAt) return (
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="Live Training OS · V1.9.5"
+          eyebrowVolt
+          title="Recovery day"
+          lede="The weekly plan marks today as rest. There is no training dose to chase."
+          action={<a className="ds-btn ds-btn--secondary ds-btn--sm" href="/">Today</a>}
+        />
+      </div>
+      <Card className="ds-rise ds-rise--1">
+        <div className="ds-stack">
+          <SectionHeader eyebrow="Recovery" title="Protect the recovery slot" />
+          <p className="ds-muted" style={{ margin: 0 }}>If you want active recovery instead, change today to Pool or Recovery in the weekly plan, or open a recovery session manually.</p>
+          <div className="ds-grid-2">
+            <a className="ds-btn ds-btn--primary ds-btn--lg ds-btn--block" href="/plan">Edit weekly plan</a>
+            <a className="ds-btn ds-btn--secondary ds-btn--lg ds-btn--block" href="/live?kind=recovery&title=Recovery">Start recovery session</a>
+          </div>
+        </div>
+      </Card>
+    </PageShell>
+  );
 
   return (
-    <main className={`live-shell ${startedAt ? "is-live" : ""} ${pausedAt ? "is-paused" : ""}`}>
-      <header className="live-topbar">
-        <div><p className="ti-eyebrow">LIVE TRAINING OS · V1.9.5</p><h1>{title}</h1><p>{startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}</p></div>
-        <div className="live-top-actions"><a className="ti-secondary" href="/coach">Coach</a><a className="ti-secondary" href="/">Today</a></div>
-      </header>
+    <PageShell>
+      <div className="ds-rise">
+        <PageHeader
+          eyebrow="Live Training OS · V1.9.5"
+          eyebrowVolt
+          title={title}
+          lede={startedAt ? "The coach is tracking dose, fatigue, execution, and live adjustments." : "Plan → intelligence → prescription → live execution → outcome."}
+          action={
+            <div className="ds-cluster">
+              <a className="ds-btn ds-btn--secondary ds-btn--sm" href="/coach">Coach</a>
+              <a className="ds-btn ds-btn--secondary ds-btn--sm" href="/">Today</a>
+            </div>
+          }
+        />
+      </div>
 
       {!startedAt && !finished && <>
-        <section className={`live-prescription live-signal-${refined.signal}`}>
-          <div><span>PRE-WORKOUT CALL · {refined.signal.toUpperCase()}</span><h2>{refined.label}</h2><p>{refined.reason}</p></div>
-          <div className="live-prescription-target"><strong>{prescription.coachDuration} min · RPE {prescription.coachRpe}</strong><small>Original: {prescription.originalDuration} min · RPE {prescription.originalRpe}</small></div>
-        </section>
-        <section className="live-pre-grid">
-          <article className="live-card"><p className="ti-eyebrow">TODAY'S JOB</p><h2>{prescription.focus}</h2><p><strong>Avoid:</strong> {prescription.avoid}</p><div className="live-signal-list">{refined.factors.slice(-6).map((factor) => <span key={factor}>{factor}</span>)}</div></article>
-          <article className="live-card"><p className="ti-eyebrow">EXECUTION MODE</p><h2>You control the final call</h2><div className="live-mode-buttons">{(["coach", "original", "custom"] as LiveOverrideMode[]).map((mode) => <button className={overrideMode === mode ? "active" : ""} key={mode} onClick={() => setOverrideMode(mode)}>{mode === "coach" ? "Follow Coach Plan" : mode === "original" ? "Use Original Plan" : "Custom Adjust"}</button>)}</div>{overrideMode === "custom" && <div className="live-target-edit"><label>Minutes<input type="number" min="5" max="300" value={targetDuration} onChange={(event) => setTargetDuration(Number(event.target.value))}/></label><label>RPE<input type="number" min="1" max="10" step="0.5" value={targetRpe} onChange={(event) => setTargetRpe(Number(event.target.value))}/></label></div>}</article>
-        </section>
-        <section className="live-card live-session-setup"><div><p className="ti-eyebrow">SESSION SETUP</p><h2>{kind === "lift" ? activeRoutine.name : subtype}</h2></div>{kind === "lift" ? <label>Routine<select value={routineId ?? ""} onChange={(event) => setRoutineId(event.target.value)}>{routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}</select></label> : <label>Session style<select value={subtype} onChange={(event) => setSubtype(event.target.value)}>{subtypeOptions(kind).map((item) => <option key={item}>{item}</option>)}</select></label>}<button className="ti-primary live-start" onClick={startSession}>▶ Start Live Training</button></section>
+        <Card glow className="ds-rise ds-rise--1">
+          <div className="ds-stack">
+            <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+              <Badge tone={SIGNAL_BADGE_TONE[refined.signal]} dot>Pre-workout call · {refined.signal}</Badge>
+            </div>
+            <div>
+              <h2 className="ds-section-title" style={{ fontSize: "1.6rem" }}>{refined.label}</h2>
+              <p className="ds-muted" style={{ margin: "6px 0 0" }}>{refined.reason}</p>
+            </div>
+            <StatGrid cols={2}>
+              <Stat label="Coach target" value={`${prescription.coachDuration} min · RPE ${prescription.coachRpe}`} tone="volt" />
+              <Stat label="Original plan" value={`${prescription.originalDuration} min · RPE ${prescription.originalRpe}`} />
+            </StatGrid>
+          </div>
+        </Card>
+
+        <div className="ds-grid-2 ds-rise ds-rise--2">
+          <Card>
+            <div className="ds-stack">
+              <div>
+                <p className="ds-eyebrow">Today's job</p>
+                <h2 className="ds-section-title">{prescription.focus}</h2>
+              </div>
+              <p className="ds-muted" style={{ margin: 0 }}><strong>Avoid:</strong> {prescription.avoid}</p>
+              <div className="ds-chip-row">
+                {refined.factors.slice(-6).map((factor) => <span key={factor} className="ds-badge">{factor}</span>)}
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <div className="ds-stack">
+              <div>
+                <p className="ds-eyebrow">Execution mode</p>
+                <h2 className="ds-section-title">You control the final call</h2>
+              </div>
+              <SegmentedControl<LiveOverrideMode>
+                label="Execution mode"
+                options={[
+                  { value: "coach", label: "Follow Coach Plan" },
+                  { value: "original", label: "Use Original Plan" },
+                  { value: "custom", label: "Custom Adjust" },
+                ] as const}
+                value={overrideMode}
+                onChange={setOverrideMode}
+              />
+              {overrideMode === "custom" && (
+                <div className="ds-grid-2">
+                  <Field label="Minutes" suffix="min">
+                    <TextInput type="number" min={5} max={300} value={targetDuration} onChange={(event) => setTargetDuration(Number(event.target.value))} />
+                  </Field>
+                  <Field label="RPE">
+                    <TextInput type="number" min={1} max={10} step={0.5} value={targetRpe} onChange={(event) => setTargetRpe(Number(event.target.value))} />
+                  </Field>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <Card className="ds-rise ds-rise--3">
+          <div className="ds-stack">
+            <div>
+              <p className="ds-eyebrow">Session setup</p>
+              <h2 className="ds-section-title">{kind === "lift" ? activeRoutine.name : subtype}</h2>
+            </div>
+            {kind === "lift"
+              ? (
+                <Field label="Routine">
+                  <SelectInput value={routineId ?? ""} onChange={(event) => setRoutineId(event.target.value)}>
+                    {routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}
+                  </SelectInput>
+                </Field>
+              ) : (
+                <Field label="Session style">
+                  <SelectInput value={subtype} onChange={(event) => setSubtype(event.target.value)}>
+                    {subtypeOptions(kind).map((item) => <option key={item}>{item}</option>)}
+                  </SelectInput>
+                </Field>
+              )}
+            <Button variant="primary" size="lg" block onClick={startSession}>▶ Start Live Training</Button>
+          </div>
+        </Card>
       </>}
 
       {startedAt && !finished && <>
-        <section className={`live-hud live-tone-${liveStatus.tone}`}>
-          <div className="live-clock"><span>{pausedAt ? "PAUSED" : "LIVE"}</span><strong>{formatClock(elapsed)}</strong><small>{wakeLockActive ? "Screen awake · " : ""}{liveStatus.label}</small></div>
-          <div className="live-dose"><div><span>Recommended dose</span><strong>{dosePercent}%</strong></div><div className="live-dose-track"><i style={{ width: `${Math.min(100, dosePercent)}%` }}/></div><small>{currentLoad}/{targetLoad} session-RPE points · RPE {currentRpe.toFixed(1)}/{targetRpe}</small></div>
-          <div className="live-hud-actions"><button onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</button><button className={smartFinish ? "finish-ready" : ""} onClick={finishSession}>{smartFinish ? "✓ Finish — dose reached" : "Finish session"}</button></div>
-        </section>
+        <div className="ds-rise">
+          <TimerFace digits={formatClock(elapsed)} label={pausedAt ? "Paused" : "Live"} volt={!pausedAt} />
+        </div>
 
-        {smartFinish && <section className="live-finish-call"><div><span>SMART FINISH</span><strong>Today's productive dose has been reached.</strong><small>Stopping now can score higher than adding fatigue beyond the session goal.</small></div><div><button onClick={finishSession}>Finish workout</button><button onClick={() => logEvent("Manual continuation", "You chose to continue after the productive-dose prompt.")}>Continue manually</button></div></section>}
+        <Card glow className="ds-rise ds-rise--1">
+          <div className="ds-stack">
+            <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+              <Badge tone={pausedAt ? "amber" : "volt"} dot>{pausedAt ? "Paused" : "Live"}</Badge>
+              <span className="ds-muted" style={{ fontSize: "0.78rem" }}>{wakeLockActive ? "Screen awake · " : ""}{liveStatus.label}</span>
+            </div>
+            <div>
+              <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+                <span className="ds-field__label">Recommended dose</span>
+                <span className="ds-stat__value ds-tnum" style={{ fontSize: "1.4rem" }}>{dosePercent}%</span>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <ProgressBar value={dosePercent / 100} label="Recommended dose" />
+              </div>
+              <p className="ds-muted" style={{ margin: "8px 0 0", fontSize: "0.82rem" }}>{currentLoad}/{targetLoad} session-RPE points · RPE {currentRpe.toFixed(1)}/{targetRpe}</p>
+            </div>
+            <div className="ds-grid-2">
+              <Button variant="secondary" size="lg" block onClick={togglePause}>{pausedAt ? "▶ Resume" : "Ⅱ Pause"}</Button>
+              <Button variant="secondary" size="lg" block onClick={finishSession}>{smartFinish ? "✓ Finish — dose reached" : "Finish session"}</Button>
+            </div>
+          </div>
+        </Card>
 
-        <section className="live-kpis"><div><span>Quality</span><strong>{quality}/100</strong><small>More is not automatically better</small></div><div><span>Target</span><strong>{targetDuration}m · {targetRpe}</strong><small>Current live prescription</small></div><div><span>Recovery</span><strong>{recovery.label}</strong><small>Heuristic estimate</small></div><div><span>Recovery debt</span><strong>{advanced.recoveryDebtScore}/100</strong><small>{advanced.recoveryDebtLabel}</small></div></section>
+        {smartFinish && (
+          <Card glow className="ds-rise ds-rise--2">
+            <div className="ds-stack">
+              <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                <Badge tone="mint" dot>Smart finish</Badge>
+              </div>
+              <div>
+                <h3 className="ds-section-title">Today's productive dose has been reached.</h3>
+                <p className="ds-muted" style={{ margin: "6px 0 0" }}>Stopping now can score higher than adding fatigue beyond the session goal.</p>
+              </div>
+              <div className="ds-grid-2">
+                <Button variant="secondary" size="lg" block onClick={finishSession}>Finish workout</Button>
+                <Button variant="ghost" size="lg" block onClick={() => logEvent("Manual continuation", "You chose to continue after the productive-dose prompt.")}>Continue manually</Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
-        <section className="live-two-col">
-          <article className="live-card"><p className="ti-eyebrow">LIVE READINESS DRIFT</p><h2>How do you feel now?</h2><div className="live-segments">{(["better", "same", "worse"] as ReadinessDrift[]).map((value) => <button className={readinessDrift === value ? "active" : ""} key={value} onClick={() => changeReadinessDrift(value)}>{value === "better" ? "↑ Better" : value === "worse" ? "↓ Worse" : "Same"}</button>)}</div></article>
-          <article className="live-card"><p className="ti-eyebrow">DISCOMFORT BRANCH</p><h2>Modify, don't diagnose</h2><div className="live-discomfort">{(["joint", "muscle", "cramp", "technique", "other"] as LiveDiscomfort[]).map((value) => <button className={discomfort === value ? "active" : ""} key={value} onClick={() => logDiscomfort(value)}>{value}</button>)}</div>{discomfort && <div className="live-branch-actions"><button disabled={discomfortAdjusted} onClick={discomfortReduce}>{discomfortAdjusted ? "Dose reduction applied" : "Reduce load/dose"}</button>{kind === "lift" && <button onClick={discomfortSkipNext}>Skip next movement</button>}<button onClick={() => applyBranch("recovery finish")}>Recovery finish</button><button onClick={finishSession}>End session</button></div>}</article>
-        </section>
+        <div className="ds-rise ds-rise--2">
+          <StatGrid cols={4}>
+            <Stat label="Quality" value={`${quality}/100`} tone="volt" sub="More is not automatically better" />
+            <Stat label="Target" value={`${targetDuration}m · ${targetRpe}`} sub="Current live prescription" />
+            <Stat label="Recovery" value={recovery.label} sub="Heuristic estimate" />
+            <Stat label="Recovery debt" value={`${advanced.recoveryDebtScore}/100`} sub={advanced.recoveryDebtLabel} />
+          </StatGrid>
+        </div>
+
+        <div className="ds-grid-2 ds-rise ds-rise--3">
+          <Card>
+            <div className="ds-stack">
+              <div>
+                <p className="ds-eyebrow">Live readiness drift</p>
+                <h3 className="ds-section-title">How do you feel now?</h3>
+              </div>
+              <SegmentedControl<ReadinessDrift>
+                label="Readiness drift"
+                options={[
+                  { value: "better", label: "↑ Better" },
+                  { value: "same", label: "Same" },
+                  { value: "worse", label: "↓ Worse" },
+                ] as const}
+                value={readinessDrift}
+                onChange={changeReadinessDrift}
+              />
+            </div>
+          </Card>
+          <Card>
+            <div className="ds-stack">
+              <div>
+                <p className="ds-eyebrow">Discomfort branch</p>
+                <h3 className="ds-section-title">Modify, don't diagnose</h3>
+              </div>
+              <div>
+                <div className="ds-field__label" style={{ marginBottom: 6 }}>Discomfort</div>
+                <ChipRow>
+                  {(["joint", "muscle", "cramp", "technique", "other"] as LiveDiscomfort[]).map((value) => (
+                    <Chip key={value} selected={discomfort === value} onClick={() => logDiscomfort(value)}>{value}</Chip>
+                  ))}
+                </ChipRow>
+              </div>
+              {discomfort && (
+                <div className="ds-cluster">
+                  <Button variant="secondary" size="sm" disabled={discomfortAdjusted} onClick={discomfortReduce}>{discomfortAdjusted ? "Dose reduction applied" : "Reduce load/dose"}</Button>
+                  {kind === "lift" && <Button variant="ghost" size="sm" onClick={discomfortSkipNext}>Skip next movement</Button>}
+                  <Button variant="secondary" size="sm" onClick={() => applyBranch("recovery finish")}>Recovery finish</Button>
+                  <Button variant="ghost" size="sm" onClick={finishSession}>End session</Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
 
         {kind === "lift" ? <>
-          <section className="live-branch-bar"><div><span>DYNAMIC SESSION BRANCH</span><strong>{branch}</strong></div><button onClick={() => applyBranch("normal")}>Continue</button><button onClick={() => applyBranch("reduced accessories")}>Reduce accessories</button><button onClick={() => applyBranch("recovery finish")}>Recovery finish</button></section>
-          <section className="live-exercise-stack">
+          <Card tight className="ds-rise">
+            <div className="ds-stack">
+              <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                <span className="ds-field__label">Dynamic session branch</span>
+                <Badge>{branch}</Badge>
+              </div>
+              <div className="ds-cluster">
+                <Button variant="ghost" size="sm" onClick={() => applyBranch("normal")}>Continue</Button>
+                <Button variant="secondary" size="sm" onClick={() => applyBranch("reduced accessories")}>Reduce accessories</Button>
+                <Button variant="secondary" size="sm" onClick={() => applyBranch("recovery finish")}>Recovery finish</Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="ds-stack ds-rise">
             {exercises.map((exercise, exerciseIndex) => {
               const cue = nextSetRecommendation(exercise, targetRpe);
               const substitutions = substitutionOptions(exercise.id, customExercises);
@@ -673,32 +922,254 @@ export default function LiveTrainingOS() {
               const nextSet = exercise.sets.find((set) => !set.done);
               const potential = nextSet?.weight && exercise.repMax ? estimateOneRepMax(nextSet.weight, exercise.repMax) : 0;
               const prWindow = priorBest > 0 && potential >= priorBest * 0.99 && refined.signal !== "recover" && advanced.recoveryDebtScore < 60;
-              return <article className={`live-exercise ${exercise.skipped ? "is-skipped" : ""}`} key={`${exercise.id}-${exerciseIndex}`}>
-                <div className="live-exercise-head"><div><span>{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax}</span><h2>{exercise.name}</h2><small>{exercise.sets.filter((set) => set.done).length}/{exercise.sets.length} working sets</small></div><div className="live-exercise-badges">{prWindow && <b>🏆 PR WINDOW</b>}{exercise.skipped && <b>SKIPPED</b>}</div></div>
-                {!exercise.skipped && <>
-                  <div className="live-next-set"><span>AUTO-REGULATED NEXT SET</span><strong>{cue.label}</strong><small>{cue.target}</small><button onClick={() => applyNextSet(exerciseIndex)}>Apply recommendation</button></div>
-                  <div className="live-set-table"><div className="live-set-row live-set-header"><span>Set</span><span>lb</span><span>reps</span><span>RIR</span><span>done</span></div>{exercise.sets.map((set, setIndex) => <div className={`live-set-row ${set.done ? "done" : ""}`} key={set.id}><span>{setIndex + 1}</span><input type="number" inputMode="decimal" value={set.weight ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "weight", event.target.value)}/><input type="number" inputMode="numeric" value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)}/><input type="number" inputMode="decimal" min="0" max="6" value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)}/><button onClick={() => toggleSet(exerciseIndex, set.id)}>{set.done ? "✓" : "○"}</button></div>)}</div>
-                  <details className="live-substitute"><summary>Replace / skip exercise</summary><div>{substitutions.map((item) => <button key={item.definition.id} onClick={() => substitute(exerciseIndex, item.definition)}><span><strong>{item.definition.name}</strong><small>{item.definition.muscle} · {item.score}% movement match</small></span><b>Use</b></button>)}<button className="live-skip" onClick={() => skipExercise(exerciseIndex)}>Skip {exercise.name} today</button></div></details>
-                </>}
-              </article>;
+              return (
+                <Card key={`${exercise.id}-${exerciseIndex}`} style={exercise.skipped ? { opacity: 0.55 } : undefined}>
+                  <div className="ds-stack">
+                    <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <p className="ds-eyebrow">{exercise.muscle.toUpperCase()} · {exercise.repMin}–{exercise.repMax}</p>
+                        <h3 className="ds-section-title">{exercise.name}</h3>
+                        <p className="ds-muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>{exercise.sets.filter((set) => set.done).length}/{exercise.sets.length} working sets</p>
+                      </div>
+                      <div className="ds-cluster">
+                        {prWindow && <Badge tone="amber">🏆 PR window</Badge>}
+                        {exercise.skipped && <Badge tone="red">Skipped</Badge>}
+                      </div>
+                    </div>
+                    {!exercise.skipped && <>
+                      <div>
+                        <p className="ds-eyebrow">Auto-regulated next set</p>
+                        <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontWeight: 750 }}>{cue.label}</div>
+                            <div className="ds-muted" style={{ fontSize: "0.82rem" }}>{cue.target}</div>
+                          </div>
+                          <Button variant="secondary" size="sm" onClick={() => applyNextSet(exerciseIndex)}>Apply recommendation</Button>
+                        </div>
+                      </div>
+                      <div>
+                        <div aria-hidden="true" style={SET_ROW_GRID}>
+                          <span className="ds-field__label" style={{ textAlign: "center" }}>Set</span>
+                          <span className="ds-field__label" style={{ textAlign: "center" }}>lb</span>
+                          <span className="ds-field__label" style={{ textAlign: "center" }}>reps</span>
+                          <span className="ds-field__label" style={{ textAlign: "center" }}>RIR</span>
+                          <span className="ds-field__label" style={{ textAlign: "center" }}>Done</span>
+                        </div>
+                        {exercise.sets.map((set, setIndex) => (
+                          <div key={set.id} style={{ ...SET_ROW_GRID, opacity: set.done ? 0.6 : 1 }}>
+                            <span className="ds-muted ds-tnum" style={{ textAlign: "center" }}>{setIndex + 1}</span>
+                            <span className="ds-field__control">
+                              <input type="number" inputMode="decimal" style={{ textAlign: "center" }} aria-label={`${exercise.name} set ${setIndex + 1} weight in pounds`} value={set.weight ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "weight", event.target.value)} />
+                            </span>
+                            <span className="ds-field__control">
+                              <input type="number" inputMode="numeric" style={{ textAlign: "center" }} aria-label={`${exercise.name} set ${setIndex + 1} reps`} value={set.reps ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "reps", event.target.value)} />
+                            </span>
+                            <span className="ds-field__control">
+                              <input type="number" inputMode="decimal" min={0} max={6} style={{ textAlign: "center" }} aria-label={`${exercise.name} set ${setIndex + 1} reps in reserve`} value={set.rir ?? ""} onChange={(event) => updateSet(exercise.id, set.id, "rir", event.target.value)} />
+                            </span>
+                            <span style={{ display: "flex", justifyContent: "center" }}>
+                              <IconButton small label={set.done ? `Mark set ${setIndex + 1} not done` : `Mark set ${setIndex + 1} done`} onClick={() => toggleSet(exerciseIndex, set.id)}>{set.done ? "✓" : "○"}</IconButton>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <details>
+                        <summary className="ds-muted" style={{ cursor: "pointer", fontWeight: 700, padding: "4px 0" }}>Replace / skip exercise</summary>
+                        <div className="ds-stack" style={{ marginTop: 8 }}>
+                          {substitutions.map((item) => (
+                            <ListRow
+                              key={item.definition.id}
+                              title={item.definition.name}
+                              sub={`${item.definition.muscle} · ${item.score}% movement match`}
+                              trailing={<span style={{ fontWeight: 800, fontSize: "0.82rem", color: "var(--ds-volt)" }}>Use</span>}
+                              onClick={() => substitute(exerciseIndex, item.definition)}
+                            />
+                          ))}
+                          <Button variant="ghost" size="sm" onClick={() => skipExercise(exerciseIndex)}>Skip {exercise.name} today</Button>
+                        </div>
+                      </details>
+                    </>}
+                  </div>
+                </Card>
+              );
             })}
-          </section>
-          <section className={`live-rest ${restRemaining ? "active" : ""}`}><div><span>SMART REST</span><strong>{restRemaining ? formatClock(restRemaining) : "Ready"}</strong><small>Rest adapts to exercise type and the RIR you just logged.</small></div><div>{restRemaining > 0 && <><button onClick={() => setRestRemaining((value) => value + 30)}>+30s</button><button onClick={() => setRestRemaining(0)}>Skip</button></>}</div></section>
-        </> : <section className="live-card live-hybrid-console">
-          <div className="live-hybrid-head"><div><p className="ti-eyebrow">LIVE {kind.toUpperCase()}</p><h2>{subtype}</h2></div><label>Style<select value={subtype} onChange={(event) => setSubtype(event.target.value)}>{subtypeOptions(kind).map((item) => <option key={item}>{item}</option>)}</select></label></div>
-          <label className="live-range">Live RPE · {effort}/10<input type="range" min="1" max="10" value={effort} onChange={(event) => setEffort(Number(event.target.value))}/></label>
-          {kind === "run" && <div className="live-metric-grid"><label>Distance km<input type="number" step="0.01" inputMode="decimal" value={distanceKm || ""} onChange={(event) => setDistanceKm(Number(event.target.value || 0))}/></label><div><span>Live pace</span><strong>{paceLabel(distanceKm, elapsed)}</strong><small>Manual-distance pace</small></div>{subtype === "Intervals" && <><label>Target reps<input type="number" min="1" max="30" value={intervalTarget} onChange={(event) => setIntervalTarget(Number(event.target.value))}/></label><label>Rep distance m<input type="number" min="50" step="50" value={intervalDistance} onChange={(event) => setIntervalDistance(Number(event.target.value))}/></label><label>Latest split sec<input type="number" min="1" value={intervalSplitInput} onChange={(event) => setIntervalSplitInput(Number(event.target.value))}/></label><button className="live-interval-button" onClick={addInterval}>+ Complete interval {intervalSplits.length + 1}/{intervalTarget}</button><div className="live-splits"><span>Splits</span><strong>{intervalSplits.length ? intervalSplits.map((split) => formatClock(split)).join(" · ") : "None yet"}</strong></div></>}</div>}
-          {kind === "conditioning" && <div className="live-metric-grid"><label>Climb / vertical ft<input type="number" min="0" value={elevationFeet || ""} onChange={(event) => setElevationFeet(Number(event.target.value || 0))}/></label><label>Rounds / efforts<input type="number" min="0" value={rounds || ""} onChange={(event) => setRounds(Number(event.target.value || 0))}/></label><div><span>Target status</span><strong>{dosePercent >= 90 ? "Dose reached" : `${Math.max(0, 90 - dosePercent)}% to target window`}</strong><small>{subtype === "Jacob's Ladder" ? `${elevationFeet.toLocaleString()} ft climbed` : `${rounds} efforts logged`}</small></div></div>}
-          {kind === "pool" && <div className="live-metric-grid"><label>Laps<input type="number" min="0" value={laps || ""} onChange={(event) => setLaps(Number(event.target.value || 0))}/></label><label>Distance m<input type="number" min="0" step="25" value={poolMeters || ""} onChange={(event) => setPoolMeters(Number(event.target.value || 0))}/></label><div><span>Recovery exposure</span><strong>{recoveryExposure}/100</strong><small>Separate from training stress</small></div></div>}
-          {(kind === "pool" || kind === "recovery") && <div className="live-recovery-options"><span>Recovery modalities</span><div>{recoveryOptions.map((item) => <button className={recoveryModalities.includes(item) ? "active" : ""} key={item} onClick={() => toggleRecoveryModality(item)}>{item}</button>)}</div><small>Recovery exposure is tracked separately; sauna/steam/hot-tub minutes do not inflate training load.</small></div>}
-        </section>}
+          </div>
 
-        <section className="live-card live-timeline"><div className="live-section-head"><div><p className="ti-eyebrow">COACH TIMELINE</p><h2>Why the session changed</h2></div><span>{timeline.length} events</span></div>{timeline.length ? <div>{timeline.map((event) => <article className={`tone-${event.tone}`} key={event.id}><time>{formatClock(event.elapsedSeconds)}</time><span><strong>{event.label}</strong><small>{event.detail}</small></span></article>)}</div> : <p>No live events yet.</p>}</section>
-        <div className="live-bottom-actions"><button className="ti-secondary" onClick={cancelSession}>{discardArmed ? "Confirm discard" : "Discard session"}</button><button className="ti-primary" onClick={finishSession}>{smartFinish ? "Finish at productive dose" : "Complete session"}</button></div>
+          {restRemaining > 0 ? (
+            <div className="ds-rise">
+              <TimerFace digits={formatClock(restRemaining)} label="Smart rest" volt />
+              <div className="ds-cluster" style={{ justifyContent: "center", marginTop: 12 }}>
+                <Button variant="secondary" size="sm" onClick={() => setRestRemaining((value) => value + 30)}>+30s</Button>
+                <Button variant="ghost" size="sm" onClick={() => setRestRemaining(0)}>Skip</Button>
+              </div>
+              <p className="ds-muted" style={{ textAlign: "center", fontSize: "0.8rem", marginTop: 8 }}>Rest adapts to exercise type and the RIR you just logged.</p>
+            </div>
+          ) : (
+            <Card tight className="ds-rise">
+              <div className="ds-cluster" style={{ justifyContent: "space-between" }}>
+                <div>
+                  <p className="ds-eyebrow">Smart rest</p>
+                  <div className="ds-stat__value">Ready</div>
+                </div>
+                <p className="ds-muted" style={{ margin: 0, fontSize: "0.82rem", maxWidth: "24ch" }}>Rest adapts to exercise type and the RIR you just logged.</p>
+              </div>
+            </Card>
+          )}
+        </> : (
+          <Card className="ds-rise">
+            <div className="ds-stack">
+              <div className="ds-cluster" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+                <div>
+                  <p className="ds-eyebrow">Live {kind.toUpperCase()}</p>
+                  <h3 className="ds-section-title">{subtype}</h3>
+                </div>
+                <div style={{ minWidth: 200 }}>
+                  <Field label="Style">
+                    <SelectInput value={subtype} onChange={(event) => setSubtype(event.target.value)}>
+                      {subtypeOptions(kind).map((item) => <option key={item}>{item}</option>)}
+                    </SelectInput>
+                  </Field>
+                </div>
+              </div>
+              <div>
+                <div className="ds-field__label" style={{ marginBottom: 6 }}>Live RPE · {effort}/10</div>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={effort}
+                  onChange={(event) => setEffort(Number(event.target.value))}
+                  style={{ width: "100%" }}
+                  aria-label={`Live RPE ${effort} of 10`}
+                />
+              </div>
+              {kind === "run" && (
+                <div className="ds-grid-2">
+                  <Field label="Distance" suffix="km">
+                    <TextInput type="number" step={0.01} inputMode="decimal" value={distanceKm || ""} onChange={(event) => setDistanceKm(Number(event.target.value || 0))} />
+                  </Field>
+                  <div className="ds-stat">
+                    <div className="ds-stat__label">Live pace</div>
+                    <div className="ds-stat__value ds-tnum">{paceLabel(distanceKm, elapsed)}</div>
+                    <div className="ds-stat__sub">Manual-distance pace</div>
+                  </div>
+                </div>
+              )}
+              {kind === "run" && subtype === "Intervals" && <>
+                <div className="ds-grid-2">
+                  <Field label="Target reps">
+                    <TextInput type="number" min={1} max={30} value={intervalTarget} onChange={(event) => setIntervalTarget(Number(event.target.value))} />
+                  </Field>
+                  <Field label="Rep distance" suffix="m">
+                    <TextInput type="number" min={50} step={50} value={intervalDistance} onChange={(event) => setIntervalDistance(Number(event.target.value))} />
+                  </Field>
+                  <Field label="Latest split" suffix="sec">
+                    <TextInput type="number" min={1} value={intervalSplitInput} onChange={(event) => setIntervalSplitInput(Number(event.target.value))} />
+                  </Field>
+                  <div className="ds-stat">
+                    <div className="ds-stat__label">Splits</div>
+                    <div className="ds-stat__value ds-tnum" style={{ fontSize: "1.05rem" }}>{intervalSplits.length ? intervalSplits.map((split) => formatClock(split)).join(" · ") : "None yet"}</div>
+                  </div>
+                </div>
+                <Button variant="secondary" onClick={addInterval}>+ Complete interval {intervalSplits.length + 1}/{intervalTarget}</Button>
+              </>}
+              {kind === "conditioning" && (
+                <div className="ds-grid-2">
+                  <Field label="Climb / vertical" suffix="ft">
+                    <TextInput type="number" min={0} value={elevationFeet || ""} onChange={(event) => setElevationFeet(Number(event.target.value || 0))} />
+                  </Field>
+                  <Field label="Rounds / efforts">
+                    <TextInput type="number" min={0} value={rounds || ""} onChange={(event) => setRounds(Number(event.target.value || 0))} />
+                  </Field>
+                  <div className="ds-stat">
+                    <div className="ds-stat__label">Target status</div>
+                    <div className="ds-stat__value ds-tnum">{dosePercent >= 90 ? "Dose reached" : `${Math.max(0, 90 - dosePercent)}% to target window`}</div>
+                    <div className="ds-stat__sub">{subtype === "Jacob's Ladder" ? `${elevationFeet.toLocaleString()} ft climbed` : `${rounds} efforts logged`}</div>
+                  </div>
+                </div>
+              )}
+              {kind === "pool" && (
+                <div className="ds-grid-2">
+                  <Field label="Laps">
+                    <TextInput type="number" min={0} value={laps || ""} onChange={(event) => setLaps(Number(event.target.value || 0))} />
+                  </Field>
+                  <Field label="Distance" suffix="m">
+                    <TextInput type="number" min={0} step={25} value={poolMeters || ""} onChange={(event) => setPoolMeters(Number(event.target.value || 0))} />
+                  </Field>
+                  <div className="ds-stat">
+                    <div className="ds-stat__label">Recovery exposure</div>
+                    <div className="ds-stat__value ds-tnum">{recoveryExposure}/100</div>
+                    <div className="ds-stat__sub">Separate from training stress</div>
+                  </div>
+                </div>
+              )}
+              {(kind === "pool" || kind === "recovery") && (
+                <div>
+                  <div className="ds-field__label" style={{ marginBottom: 6 }}>Recovery modalities</div>
+                  <ChipRow>
+                    {recoveryOptions.map((item) => (
+                      <Chip key={item} selected={recoveryModalities.includes(item)} onClick={() => toggleRecoveryModality(item)}>{item}</Chip>
+                    ))}
+                  </ChipRow>
+                  <p className="ds-muted" style={{ fontSize: "0.8rem", margin: "8px 0 0" }}>Recovery exposure is tracked separately; sauna/steam/hot-tub minutes do not inflate training load.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        <Card className="ds-rise ds-rise--4">
+          <div className="ds-stack">
+            <SectionHeader
+              eyebrow="Coach timeline"
+              title="Why the session changed"
+              action={<span className="ds-muted" style={{ fontSize: "0.78rem" }}>{timeline.length} events</span>}
+            />
+            {timeline.length ? (
+              <div className="ds-stack">
+                {timeline.map((event) => (
+                  <ListRow
+                    key={event.id}
+                    title={event.label}
+                    sub={event.detail}
+                    trailing={<Badge tone={TIMELINE_BADGE_TONE[event.tone]}>{formatClock(event.elapsedSeconds)}</Badge>}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No live events yet" />
+            )}
+          </div>
+        </Card>
+
+        <div className="ds-cluster ds-rise ds-rise--4" style={{ justifyContent: "flex-end" }}>
+          <Button variant="secondary" onClick={cancelSession}>{discardArmed ? "Confirm discard" : "Discard session"}</Button>
+          <Button variant="primary" size="lg" onClick={finishSession}>{smartFinish ? "Finish at productive dose" : "Complete session"}</Button>
+        </div>
       </>}
 
-      {finished && <section className="live-finished"><p className="ti-eyebrow">SESSION COMPLETE</p><h2>{finished.quality}/100 session quality</h2><p>{finished.note}</p><div className="live-finished-grid"><div><span>Estimated recovery</span><strong>{finished.recovery}</strong><small>Coaching heuristic, not a medical measurement</small></div><div><span>PR signals</span><strong>{finished.prs.length}</strong><small>{finished.prs.join(" · ") || "No PR signal required for a good session"}</small></div></div><div className="live-actions"><a className="ti-primary" href="/history">View saved session</a><a className="ti-secondary" href="/coach">See updated coach</a><a className="ti-secondary" href="/">Back to Today</a></div></section>}
-      {notice && <div className="live-notice">{notice}</div>}
-    </main>
+      {finished && (
+        <Card glow className="ds-rise">
+          <div className="ds-stack">
+            <div>
+              <p className="ds-eyebrow ds-eyebrow--volt">Session complete</p>
+              <h2 className="ds-section-title" style={{ fontSize: "2rem" }}>{finished.quality}/100 session quality</h2>
+              <p className="ds-muted" style={{ margin: "8px 0 0" }}>{finished.note}</p>
+            </div>
+            <StatGrid cols={2}>
+              <Stat label="Estimated recovery" value={finished.recovery} sub="Coaching heuristic, not a medical measurement" />
+              <Stat label="PR signals" value={finished.prs.length} sub={finished.prs.join(" · ") || "No PR signal required for a good session"} />
+            </StatGrid>
+            <div className="ds-grid-2">
+              <a className="ds-btn ds-btn--primary ds-btn--lg ds-btn--block" href="/history">View saved session</a>
+              <a className="ds-btn ds-btn--secondary ds-btn--lg ds-btn--block" href="/coach">See updated coach</a>
+            </div>
+            <a className="ds-btn ds-btn--ghost ds-btn--block" href="/">Back to Today</a>
+          </div>
+        </Card>
+      )}
+
+      {notice && <Card tight className="ds-rise" role="status"><p className="ds-muted" style={{ margin: 0 }}>{notice}</p></Card>}
+    </PageShell>
   );
 }
